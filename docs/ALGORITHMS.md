@@ -8,9 +8,9 @@ Instead of relying on a single fixed strategy, we ask multiple AI models (Claude
 
 ## Models Used
 
-*   **Claude**: Focuses on a balanced approach, weighing Alpha, Downside Protection, and Consistency.
-*   **Gemini**: Emphasizes advanced statistical metrics like Omega Ratio, Hurst Exponent, and Upside Potential.
-*   **Codex**: Uses a validation-driven approach, tuning weights based on historical backtesting to optimize for forward returns.
+*   **Claude**: Focuses on adaptive multi-horizon conviction with path quality and regime adaptability analysis. Emphasizes skill persistence and tail risk management.
+*   **Gemini**: Uses multi-factor regression to isolate "pure alpha" from market-cap exposure. Emphasizes Omega Ratio, downside resistance, and consistency of skill.
+*   **Codex**: Uses walk-forward validation and weight tuning to optimize for forward returns. Implements subsector-aware rank blending to reduce style overconcentration.
 
 ## Disclaimer
 
@@ -27,3 +27,8 @@ These algorithms are AI-generated and experimental. They rely on historical data
     *   [Claude Strategy](algorithms/Mid%20Cap_Claude.md)
     *   [Gemini Strategy](algorithms/Mid%20Cap_Gemini.md)
     *   [Codex Strategy](algorithms/Mid%20Cap_Codex.md)
+
+*   [Total Market Strategy Overview](algorithms/Total%20Market.md) ⭐ *New*
+    *   [Claude Strategy](algorithms/Total%20Market_Claude.md)
+    *   [Gemini Strategy](algorithms/Total%20Market_Gemini.md)
+    *   [Codex Strategy](algorithms/Total%20Market_Codex.md)

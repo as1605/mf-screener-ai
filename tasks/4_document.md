@@ -16,3 +16,6 @@ Keep this structure
 If rerunning, focus on revalidating the algorithms and updating changes to the logic.
 
 Make sure the whole documentation structure is easy to read and well formatted
+
+
+Encourage developers to fork the repo, modify 2_algorithm.md and rerun

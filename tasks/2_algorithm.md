@@ -1,9 +1,10 @@
 # MF Scoring Algorithm
 
-{SECTOR}={Mid Cap}
-{model}={Codex}
+{SECTOR}={Total Market}
+{model}={Gemini}
 
-Your task is to create an algorithm to score Indian Mutual Funds from {SECTOR} sector. A higher score should predict higher returns in the next 1 year. You are given NAV history of all funds in that sector from MfDataProvider
+Your task is to create an algorithm to score Indian Mutual Funds from {SECTOR} sector. A higher score should predict higher returns in the next 1 year. You are given NAV history of all funds in that sector from MfDataProvider.
+Do your own research, do not copy implementations of other models.
 
 
 ## Task
@@ -16,15 +17,17 @@ Your task is to create an algorithm to score Indian Mutual Funds from {SECTOR} s
 - See how we can create rolling metrics and backtest performance for tuning metrics with the given data
 - Finally, create a script `src/algorithms/{SECTOR}_{model}.py` which does an intelligent analysis from the given data for each {SECTOR} fund, and assigns it a score.
 - It should output a sheet `results/{SECTOR}_{model}.csv` with columns: mfId, name, rank, score, data_days, cagr_5y, other metrics. Rank should be 1 for best, CAGR should be a percentage. data_days should tell how many days data was available for that fund
+- Run and check the results of your algorithm, and analyse if it is missing anything or making any biases or errors. Update the algorithm if needed. Make sure your approach is on your own research and not copied from other models
 
 ## Data Statistics
 
-Sector Name: Equity
-Sub Sector Name: Mid Cap Fund
-Total AUM: 452,105.82
-Total Funds: 34
-Funds with data > 1Y: 29
-Funds with data > 5Y: 24
+Sector Name: Total Market
+Sub Sector Names:
+- Contra Fund
+- Flexi Cap Fund
+- Focused Fund
+- Multi Cap Fund
+- Value Fund
 
 ## MfDataProvider - Quick API Reference
 
