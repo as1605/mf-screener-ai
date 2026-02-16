@@ -11,10 +11,10 @@ current rankings. It works in four stages:
 4) Use the tuned weights to rank funds on the latest date.
 
 Outputs:
-- results/Small Cap_Codex.tsv
-- data/tmp/Small Cap_Codex_weights.tsv
-- data/tmp/Small Cap_Codex_backtest.tsv
-- data/tmp/Small Cap_Codex_tuning_trials.tsv
+- results/Small Cap_Codex.csv
+- data/tmp/Small Cap_Codex_weights.csv
+- data/tmp/Small Cap_Codex_backtest.csv
+- data/tmp/Small Cap_Codex_tuning_trials.csv
 """
 
 import sys
@@ -81,13 +81,13 @@ MAX_FACTOR_WEIGHT = 0.28
 MAX_CV_FOLDS = 4
 
 OUTPUT_DIR = ROOT_DIR / "results"
-OUTPUT_FILE = OUTPUT_DIR / f"{SECTOR}_Codex.tsv"
+OUTPUT_FILE = OUTPUT_DIR / f"{SECTOR}_Codex.csv"
 
 # Keep intermediate diagnostics out of results/.
 TMP_OUTPUT_DIR = ROOT_DIR / "data" / "tmp"
-WEIGHTS_FILE = TMP_OUTPUT_DIR / f"{SECTOR}_Codex_weights.tsv"
-BACKTEST_FILE = TMP_OUTPUT_DIR / f"{SECTOR}_Codex_backtest.tsv"
-TUNING_TRIALS_FILE = TMP_OUTPUT_DIR / f"{SECTOR}_Codex_tuning_trials.tsv"
+WEIGHTS_FILE = TMP_OUTPUT_DIR / f"{SECTOR}_Codex_weights.csv"
+BACKTEST_FILE = TMP_OUTPUT_DIR / f"{SECTOR}_Codex_backtest.csv"
+TUNING_TRIALS_FILE = TMP_OUTPUT_DIR / f"{SECTOR}_Codex_tuning_trials.csv"
 
 
 # (factor_name, higher_is_better)
@@ -1498,7 +1498,7 @@ def main() -> None:
     output["history_years"] = current_ranked["history_years"].apply(lambda x: f"{x:.2f}" if pd.notna(x) else "")
     output["history_reliability"] = current_ranked["history_reliability"].apply(ratio_fmt)
 
-    output.to_csv(OUTPUT_FILE, sep="\t", index=False)
+    output.to_csv(OUTPUT_FILE, index=False)
 
     weights_df = pd.DataFrame(
         {
@@ -1512,7 +1512,7 @@ def main() -> None:
             "final_weight_pct": final_weights * 100.0,
         }
     ).sort_values("final_weight", ascending=False)
-    weights_df.to_csv(WEIGHTS_FILE, sep="\t", index=False)
+    weights_df.to_csv(WEIGHTS_FILE, index=False)
 
     timeframe_df = pd.DataFrame(
         [
@@ -1529,12 +1529,12 @@ def main() -> None:
             ["horizon", "stability_score"], ascending=[True, False]
         ).reset_index(drop=True)
         timeframe_stats.to_csv(
-            TMP_OUTPUT_DIR / f"{SECTOR}_Codex_timeframe_factor_stats.tsv",
+            TMP_OUTPUT_DIR / f"{SECTOR}_Codex_timeframe_factor_stats.csv",
             sep="\t",
             index=False,
         )
     timeframe_df.to_csv(
-        TMP_OUTPUT_DIR / f"{SECTOR}_Codex_timeframe_importance.tsv",
+        TMP_OUTPUT_DIR / f"{SECTOR}_Codex_timeframe_importance.csv",
         sep="\t",
         index=False,
     )
@@ -1545,9 +1545,9 @@ def main() -> None:
     )
     if not backtest_df.empty:
         backtest_df = backtest_df.sort_values(["segment", "date"]).reset_index(drop=True)
-    backtest_df.to_csv(BACKTEST_FILE, sep="\t", index=False)
+    backtest_df.to_csv(BACKTEST_FILE, index=False)
 
-    trials_df.head(250).to_csv(TUNING_TRIALS_FILE, sep="\t", index=False)
+    trials_df.head(250).to_csv(TUNING_TRIALS_FILE, index=False)
 
     # --- Console summary ---
     def metric_line(label: str, m: Dict[str, float]) -> str:
@@ -1611,8 +1611,8 @@ def main() -> None:
     print(f"    - {WEIGHTS_FILE}")
     print(f"    - {BACKTEST_FILE}")
     print(f"    - {TUNING_TRIALS_FILE}")
-    print(f"    - {TMP_OUTPUT_DIR / f'{SECTOR}_Codex_timeframe_importance.tsv'}")
-    print(f"    - {TMP_OUTPUT_DIR / f'{SECTOR}_Codex_timeframe_factor_stats.tsv'}")
+    print(f"    - {TMP_OUTPUT_DIR / f'{SECTOR}_Codex_timeframe_importance.csv'}")
+    print(f"    - {TMP_OUTPUT_DIR / f'{SECTOR}_Codex_timeframe_factor_stats.csv'}")
     print("=" * 80 + "\n")
 
 

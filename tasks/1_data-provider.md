@@ -100,14 +100,14 @@ Where the indexId are mapped as follows
 ## Task
 
 1. Create a python script which keeps `DATA_DIR = './data/yyyy-mm-dd/'` and fetches
-- list of all MFs along with metadata. Columns: mfId, name, aum, sector, subsector: `{DATA_DIR}/ALL.tsv`
-- individual MF chart data. Columns: timestamp, nav: `{DATA_DIR}/mf/{mfId}.tsv`
-- index chart data. Columns: timestamp, nav: `{DATA_DIR}/index/{indexId}.tsv`
+- list of all MFs along with metadata. Columns: mfId, name, aum, sector, subsector: `{DATA_DIR}/ALL.csv`
+- individual MF chart data. Columns: timestamp, nav: `{DATA_DIR}/mf/{mfId}.csv`
+- index chart data. Columns: timestamp, nav: `{DATA_DIR}/index/{indexId}.csv`
 
 On running `__main__`, fetch all MFs and all Indices
 
 2. Provide a python class MfDataProvider to expose this data and provide following functions
-- list_all_mf() -> return ALL.tsv as a pd df
+- list_all_mf() -> return ALL.csv as a pd df
 - list_mf_by_sector() -> return a dict of dict of list. `{"sector": {"subsector": ["mfId"]}}`
 - get_mf_chart(mfId: str) -> return pd df
 - list_indices() -> return a dict of `{"name": "indexId"}`

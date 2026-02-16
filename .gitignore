@@ -1,6 +1,6 @@
 data/
 # *.tsv
-*.csv
+# *.csv
 *.json
 .DS_Store
 

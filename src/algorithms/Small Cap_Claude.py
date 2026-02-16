@@ -77,7 +77,7 @@ MIN_WEEKS_3Y = 150
 MIN_WEEKS_5Y = 250
 
 OUTPUT_DIR = ROOT_DIR / "results"
-OUTPUT_FILE = OUTPUT_DIR / f"{SECTOR}_Claude.tsv"
+OUTPUT_FILE = OUTPUT_DIR / f"{SECTOR}_Claude.csv"
 
 
 # ===================================================================
@@ -488,7 +488,7 @@ def main():
 
     # --- Save ---
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output.to_csv(OUTPUT_FILE, sep="\t", index=False)
+    output.to_csv(OUTPUT_FILE, index=False)
     logger.info(f"Results saved to {OUTPUT_FILE}")
 
     # --- Print top 15 ---

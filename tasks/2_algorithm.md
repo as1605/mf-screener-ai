@@ -15,7 +15,7 @@ Your task is to create an algorithm to score Indian Mutual Funds from {SECTOR} s
 - Research how to identify market swings and check fund performance against it. The fund should be able to take advantage of swings to maximise total return in long term
 - See how we can create rolling metrics and backtest performance for tuning metrics with the given data
 - Finally, create a script `src/algorithms/{SECTOR}_{model}.py` which does an intelligent analysis from the given data for each {SECTOR} fund, and assigns it a score.
-- It should output a sheet `results/{SECTOR}_{model}.tsv` with columns: mfId, name, rank, score, data_days, cagr_5y, other metrics. Rank should be 1 for best, CAGR should be a percentage. data_days should tell how many days data was available for that fund
+- It should output a sheet `results/{SECTOR}_{model}.csv` with columns: mfId, name, rank, score, data_days, cagr_5y, other metrics. Rank should be 1 for best, CAGR should be a percentage. data_days should tell how many days data was available for that fund
 
 ## Data Statistics
 

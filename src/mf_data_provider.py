@@ -189,12 +189,12 @@ class MfDataProvider:
         Raises:
             APIError: If API call fails
         """
-        all_file = os.path.join(self.data_dir, 'ALL.tsv')
+        all_file = os.path.join(self.data_dir, 'ALL.csv')
         
         # Return cached data if available and not forcing refresh
         if os.path.exists(all_file) and not force_refresh:
-            logger.info("Loading cached MF list from ALL.tsv")
-            return pd.read_csv(all_file, sep='\t')
+            logger.info("Loading cached MF list from ALL.csv")
+            return pd.read_csv(all_file)
         
         logger.info("Fetching mutual fund list from API...")
         
@@ -233,7 +233,7 @@ class MfDataProvider:
         df = pd.DataFrame(mf_list)
         
         # Save to file
-        df.to_csv(all_file, sep='\t', index=False)
+        df.to_csv(all_file, index=False)
         logger.info(f"Saved {len(df)} mutual funds to {all_file}")
         
         return df
@@ -252,12 +252,12 @@ class MfDataProvider:
         Raises:
             APIError: If API call fails
         """
-        mf_file = os.path.join(self.data_dir, 'mf', f'{mf_id}.tsv')
+        mf_file = os.path.join(self.data_dir, 'mf', f'{mf_id}.csv')
         
         # Return cached data if available and not forcing refresh
         if os.path.exists(mf_file) and not force_refresh:
             logger.debug(f"Loading cached chart data for {mf_id}")
-            return pd.read_csv(mf_file, sep='\t')
+            return pd.read_csv(mf_file)
         
         logger.info(f"Fetching chart data for mutual fund: {mf_id}")
         
@@ -284,7 +284,7 @@ class MfDataProvider:
         df['timestamp'] = pd.to_datetime(df['timestamp'])
         
         # Save to file
-        df.to_csv(mf_file, sep='\t', index=False)
+        df.to_csv(mf_file, index=False)
         logger.info(f"Saved {len(df)} data points for {mf_id}")
         
         return df
@@ -294,7 +294,7 @@ class MfDataProvider:
         Fetch a single MF chart and write to disk. Thread-safe (own session).
         Returns (mf_id, None) on success, (mf_id, exception) on failure.
         """
-        mf_file = os.path.join(self.data_dir, 'mf', f'{mf_id}.tsv')
+        mf_file = os.path.join(self.data_dir, 'mf', f'{mf_id}.csv')
         url = self.MF_CHART_URL.format(mfId=mf_id)
         params = {'duration': 'max'}
         session = self._create_session()
@@ -312,7 +312,7 @@ class MfDataProvider:
                 return (mf_id, None)  # write empty is ok
             df = pd.DataFrame(chart_data)
             df['timestamp'] = pd.to_datetime(df['timestamp'])
-            df.to_csv(mf_file, sep='\t', index=False)
+            df.to_csv(mf_file, index=False)
             return (mf_id, None)
         except Exception as e:
             return (mf_id, e)
@@ -324,7 +324,7 @@ class MfDataProvider:
         """
         name, index_id = item
         safe_index_id = index_id.replace('.', '_')
-        index_file = os.path.join(self.data_dir, 'index', f'{safe_index_id}.tsv')
+        index_file = os.path.join(self.data_dir, 'index', f'{safe_index_id}.csv')
         url = self.INDEX_CHART_URL.format(indexId=index_id)
         params = {'duration': 'max'}
         session = self._create_session()
@@ -342,7 +342,7 @@ class MfDataProvider:
                 return (index_id, None)
             df = pd.DataFrame(chart_data)
             df['timestamp'] = pd.to_datetime(df['timestamp'])
-            df.to_csv(index_file, sep='\t', index=False)
+            df.to_csv(index_file, index=False)
             return (index_id, None)
         except Exception as e:
             return (index_id, e)
@@ -363,12 +363,12 @@ class MfDataProvider:
         """
         # Sanitize index_id for filename (replace dots)
         safe_index_id = index_id.replace('.', '_')
-        index_file = os.path.join(self.data_dir, 'index', f'{safe_index_id}.tsv')
+        index_file = os.path.join(self.data_dir, 'index', f'{safe_index_id}.csv')
         
         # Return cached data if available and not forcing refresh
         if os.path.exists(index_file) and not force_refresh:
             logger.debug(f"Loading cached chart data for index {index_id}")
-            return pd.read_csv(index_file, sep='\t')
+            return pd.read_csv(index_file)
         
         logger.info(f"Fetching chart data for index: {index_id}")
         
@@ -395,7 +395,7 @@ class MfDataProvider:
         df['timestamp'] = pd.to_datetime(df['timestamp'])
         
         # Save to file
-        df.to_csv(index_file, sep='\t', index=False)
+        df.to_csv(index_file, index=False)
         logger.info(f"Saved {len(df)} data points for index {index_id}")
         
         return df
