@@ -104,7 +104,7 @@ Where the indexId are mapped as follows
 - individual MF chart data. Columns: timestamp, nav: `{DATA_DIR}/mf/{mfId}.tsv`
 - index chart data. Columns: timestamp, nav: `{DATA_DIR}/index/{indexId}.tsv`
 
-On running __main__, fetch all MFs and all Indices
+On running `__main__`, fetch all MFs and all Indices
 
 2. Provide a python class MfDataProvider to expose this data and provide following functions
 - list_all_mf() -> return ALL.tsv as a pd df
@@ -112,8 +112,7 @@ On running __main__, fetch all MFs and all Indices
 - get_mf_chart(mfId: str) -> return pd df
 - list_indices() -> return a dict of `{"name": "indexId"}`
 - get_index_chart(indexId: str) -> return pd df
-
-Fetch if any data is missing
+- fetch_all_data() -> this should be called in `__main__` . Optimize with multithreading to get 5-10x speed at each stage.
 
 3. Provide a crisp documentation/API definition for other LLM/dev to generate python codes to import and use this class properly. 
 Create a function to output a statistic/integration metadata in markdown with

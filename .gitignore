@@ -1,5 +1,5 @@
 data/
-*.tsv
+# *.tsv
 *.csv
 *.json
 .DS_Store

@@ -14,8 +14,9 @@ import requests
 import pandas as pd
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from time import sleep
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -75,9 +76,13 @@ class MfDataProvider:
         "Gold": "GBES"
     }
     
-    # Rate limiting
+    # Rate limiting (for single-threaded requests)
     REQUEST_DELAY = 0.5  # seconds between requests
-    
+
+    # Parallel fetch settings (for fetch_all_data)
+    MF_CHART_MAX_WORKERS = 12
+    INDEX_CHART_MAX_WORKERS = 5
+
     def __init__(self, base_dir: str = './data', date: Optional[str] = None):
         """
         Initialize the MfDataProvider.
@@ -283,6 +288,64 @@ class MfDataProvider:
         logger.info(f"Saved {len(df)} data points for {mf_id}")
         
         return df
+
+    def _fetch_one_mf_chart_to_disk(self, mf_id: str) -> Tuple[str, Optional[Exception]]:
+        """
+        Fetch a single MF chart and write to disk. Thread-safe (own session).
+        Returns (mf_id, None) on success, (mf_id, exception) on failure.
+        """
+        mf_file = os.path.join(self.data_dir, 'mf', f'{mf_id}.tsv')
+        url = self.MF_CHART_URL.format(mfId=mf_id)
+        params = {'duration': 'max'}
+        session = self._create_session()
+        try:
+            response = session.get(url, params=params, headers=self.HEADERS, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            if not data.get('success', False):
+                return (mf_id, APIError(f"API returned success=false for {mf_id}"))
+            chart_data = []
+            for series in data.get('data', []):
+                for point in series.get('points', []):
+                    chart_data.append({'timestamp': point.get('ts'), 'nav': point.get('lp')})
+            if not chart_data:
+                return (mf_id, None)  # write empty is ok
+            df = pd.DataFrame(chart_data)
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            df.to_csv(mf_file, sep='\t', index=False)
+            return (mf_id, None)
+        except Exception as e:
+            return (mf_id, e)
+
+    def _fetch_one_index_chart_to_disk(self, item: Tuple[str, str]) -> Tuple[str, Optional[Exception]]:
+        """
+        Fetch a single index chart and write to disk. Thread-safe (own session).
+        item is (name, index_id). Returns (index_id, None) on success, (index_id, exception) on failure.
+        """
+        name, index_id = item
+        safe_index_id = index_id.replace('.', '_')
+        index_file = os.path.join(self.data_dir, 'index', f'{safe_index_id}.tsv')
+        url = self.INDEX_CHART_URL.format(indexId=index_id)
+        params = {'duration': 'max'}
+        session = self._create_session()
+        try:
+            response = session.get(url, params=params, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+            if not data.get('success', False):
+                return (index_id, APIError(f"API returned success=false for {index_id}"))
+            chart_data = []
+            for series in data.get('data', []):
+                for point in series.get('points', []):
+                    chart_data.append({'timestamp': point.get('ts'), 'nav': point.get('lp')})
+            if not chart_data:
+                return (index_id, None)
+            df = pd.DataFrame(chart_data)
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            df.to_csv(index_file, sep='\t', index=False)
+            return (index_id, None)
+        except Exception as e:
+            return (index_id, e)
     
     def fetch_index_chart(self, index_id: str, force_refresh: bool = False) -> pd.DataFrame:
         """
@@ -337,41 +400,59 @@ class MfDataProvider:
         
         return df
     
-    def fetch_all_data(self) -> None:
+    def fetch_all_data(self) -> Dict[str, int]:
         """
         Fetch all data: MF list, all MF charts, and all index charts.
-        
-        This is a convenience method to populate the entire cache.
-        Warning: This can take a significant amount of time.
+        Uses multithreading for MF and index charts for 5–10x speedup.
+
+        Returns:
+            dict: Counts with keys mf_success, mf_failed, index_success, index_failed.
         """
-        logger.info("Starting full data fetch...")
-        
-        # Fetch MF list
+        logger.info("Starting full data fetch (parallel)...")
+
+        # Stage 1: Fetch MF list (single request)
         df_mf = self.fetch_all_mf_list(force_refresh=True)
-        logger.info(f"Fetched list of {len(df_mf)} mutual funds")
-        
-        # Fetch all MF charts
-        logger.info("Fetching chart data for all mutual funds...")
-        for idx, mf_id in enumerate(df_mf['mfId'], 1):
-            try:
-                self.fetch_mf_chart(mf_id, force_refresh=True)
+        mf_ids = df_mf['mfId'].tolist()
+        logger.info(f"Fetched list of {len(mf_ids)} mutual funds")
+
+        # Stage 2: Fetch all MF charts in parallel
+        mf_success, mf_failed = 0, 0
+        logger.info(f"Fetching MF charts with {self.MF_CHART_MAX_WORKERS} workers...")
+        with ThreadPoolExecutor(max_workers=self.MF_CHART_MAX_WORKERS) as executor:
+            futures = {executor.submit(self._fetch_one_mf_chart_to_disk, mf_id): mf_id for mf_id in mf_ids}
+            for idx, future in enumerate(as_completed(futures), 1):
+                mf_id, err = future.result()
+                if err is None:
+                    mf_success += 1
+                else:
+                    mf_failed += 1
+                    logger.error(f"Failed to fetch chart for {mf_id}: {err}")
                 if idx % 50 == 0:
-                    logger.info(f"Progress: {idx}/{len(df_mf)} mutual funds fetched")
-            except APIError as e:
-                logger.error(f"Failed to fetch chart for {mf_id}: {str(e)}")
-                continue
-        
-        # Fetch all index charts
-        logger.info("Fetching chart data for all indices...")
-        for name, index_id in self.INDICES.items():
-            try:
-                self.fetch_index_chart(index_id, force_refresh=True)
-                logger.info(f"Fetched chart for {name} ({index_id})")
-            except APIError as e:
-                logger.error(f"Failed to fetch chart for {name}: {str(e)}")
-                continue
-        
+                    logger.info(f"MF charts progress: {idx}/{len(mf_ids)}")
+        logger.info(f"MF charts done: {mf_success} ok, {mf_failed} failed")
+
+        # Stage 3: Fetch all index charts in parallel
+        index_items = list(self.INDICES.items())
+        index_success, index_failed = 0, 0
+        logger.info(f"Fetching index charts with {self.INDEX_CHART_MAX_WORKERS} workers...")
+        with ThreadPoolExecutor(max_workers=self.INDEX_CHART_MAX_WORKERS) as executor:
+            futures = {executor.submit(self._fetch_one_index_chart_to_disk, item): item for item in index_items}
+            for future in as_completed(futures):
+                index_id, err = future.result()
+                if err is None:
+                    index_success += 1
+                else:
+                    index_failed += 1
+                    logger.error(f"Failed to fetch index {index_id}: {err}")
+        logger.info(f"Index charts done: {index_success} ok, {index_failed} failed")
         logger.info("Full data fetch completed!")
+
+        return {
+            "mf_success": mf_success,
+            "mf_failed": mf_failed,
+            "index_success": index_success,
+            "index_failed": index_failed,
+        }
     
     # ==================== Public API Methods ====================
     
@@ -496,115 +577,41 @@ class MfDataProvider:
             raise DataNotFoundError(f"Failed to get chart for index {index_id}: {str(e)}") from e
 
 
-if __name__ == "__main__":
-    # Fetch all mutual funds and indices
+def main() -> None:
+    """
+    Entry point: fetch all MFs and indices using parallel data fetch, then print summary.
+    Called from __main__.
+    """
     logger.info("Starting MfDataProvider - Fetching all data...")
-    
     try:
-        # Initialize provider
         provider = MfDataProvider()
-        
-        print("\n" + "="*70)
-        print("FETCHING ALL MUTUAL FUNDS AND INDICES")
-        print("="*70)
-        print("\nThis will fetch:")
-        print("  1. List of all mutual funds")
-        print("  2. Historical chart data for all mutual funds")
-        print("  3. Historical chart data for all indices")
-        print("\nNote: This may take a significant amount of time (1-3 hours)")
-        print("depending on the number of funds and network speed.")
-        print("="*70)
-        
-        # Step 1: Fetch all MF list
-        print("\n[STEP 1/3] Fetching list of all mutual funds...")
-        df_all = provider.fetch_all_mf_list(force_refresh=True)
-        print(f"✓ Fetched {len(df_all)} mutual funds")
-        print(f"  Saved to: {provider.data_dir}/ALL.tsv")
-        
-        # Step 2: Fetch all MF charts
-        print("\n[STEP 2/3] Fetching chart data for all mutual funds...")
-        print(f"  Total funds to fetch: {len(df_all)}")
-        print("  Progress updates every 50 funds...\n")
-        
-        success_count = 0
-        error_count = 0
-        
-        for idx, row in df_all.iterrows():
-            mf_id = row['mfId']
-            try:
-                provider.fetch_mf_chart(mf_id, force_refresh=True)
-                success_count += 1
-                
-                # Progress update
-                if (idx + 1) % 50 == 0:
-                    print(f"  Progress: {idx + 1}/{len(df_all)} funds fetched "
-                          f"({success_count} successful, {error_count} failed)")
-                
-            except APIError as e:
-                error_count += 1
-                logger.error(f"Failed to fetch chart for {mf_id}: {str(e)}")
-                continue
-            except Exception as e:
-                error_count += 1
-                logger.error(f"Unexpected error for {mf_id}: {str(e)}")
-                continue
-        
-        print(f"\n✓ MF charts completed: {success_count} successful, {error_count} failed")
-        print(f"  Saved to: {provider.data_dir}/mf/")
-        
-        # Step 3: Fetch all index charts
-        print("\n[STEP 3/3] Fetching chart data for all indices...")
-        indices = provider.list_indices()
-        
-        index_success = 0
-        index_error = 0
-        
-        for name, index_id in indices.items():
-            try:
-                provider.fetch_index_chart(index_id, force_refresh=True)
-                index_success += 1
-                print(f"  ✓ {name} ({index_id})")
-            except APIError as e:
-                index_error += 1
-                logger.error(f"Failed to fetch chart for {name}: {str(e)}")
-                print(f"  ✗ {name} ({index_id}) - FAILED")
-                continue
-            except Exception as e:
-                index_error += 1
-                logger.error(f"Unexpected error for {name}: {str(e)}")
-                print(f"  ✗ {name} ({index_id}) - FAILED")
-                continue
-        
-        print(f"\n✓ Index charts completed: {index_success} successful, {index_error} failed")
-        print(f"  Saved to: {provider.data_dir}/index/")
-        
-        # Summary
-        print("\n" + "="*70)
+        print("\n" + "=" * 70)
+        print("FETCHING ALL MUTUAL FUNDS AND INDICES (parallel)")
+        print("=" * 70)
+        print("\nStages: 1) MF list  2) MF charts (threaded)  3) Index charts (threaded)")
+        print("=" * 70)
+
+        counts = provider.fetch_all_data()
+
+        print("\n" + "=" * 70)
         print("FETCH SUMMARY")
-        print("="*70)
+        print("=" * 70)
         print(f"\nData directory: {provider.data_dir}")
-        print(f"\nMutual Funds:")
-        print(f"  Total: {len(df_all)}")
-        print(f"  Charts fetched: {success_count}")
-        print(f"  Failed: {error_count}")
-        print(f"\nIndices:")
-        print(f"  Total: {len(indices)}")
-        print(f"  Charts fetched: {index_success}")
-        print(f"  Failed: {index_error}")
-        
-        if error_count + index_error == 0:
-            print("\n🎉 ALL DATA FETCHED SUCCESSFULLY!")
+        print(f"\nMutual Funds: {counts['mf_success']} charts ok, {counts['mf_failed']} failed")
+        print(f"Indices: {counts['index_success']} ok, {counts['index_failed']} failed")
+        if counts['mf_failed'] + counts['index_failed'] == 0:
+            print("\nAll data fetched successfully.")
         else:
-            print(f"\n⚠️  Completed with {error_count + index_error} errors (check logs for details)")
-        
-        print("="*70)
-        
+            print("\nCompleted with some errors (see logs).")
+        print("=" * 70)
     except KeyboardInterrupt:
-        print("\n\n⚠️  Fetch interrupted by user (Ctrl+C)")
-        print("Partial data has been saved and can be reused.")
+        print("\n\nFetch interrupted by user (Ctrl+C). Partial data may have been saved.")
         logger.warning("Data fetch interrupted by user")
-        
     except Exception as e:
         logger.error(f"Fatal error during data fetch: {str(e)}", exc_info=True)
-        print(f"\n✗ Fatal error: {str(e)}")
+        print(f"\nFatal error: {str(e)}")
         raise
+
+
+if __name__ == "__main__":
+    main()
