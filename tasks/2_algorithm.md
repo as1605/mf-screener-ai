@@ -1,6 +1,6 @@
 # MF Scoring Algorithm
 
-{SECTOR}={Small Cap}
+{SECTOR}={Mid Cap}
 {model}={Codex}
 
 Your task is to create an algorithm to score Indian Mutual Funds from {SECTOR} sector. A higher score should predict higher returns in the next 1 year. You are given NAV history of all funds in that sector from MfDataProvider
@@ -20,11 +20,11 @@ Your task is to create an algorithm to score Indian Mutual Funds from {SECTOR} s
 ## Data Statistics
 
 Sector Name: Equity
-Sub Sector Name: Small Cap Fund
-Total AUM: 356,098.73
+Sub Sector Name: Mid Cap Fund
+Total AUM: 452,105.82
 Total Funds: 34
-Funds with data > 1Y: 30
-Funds with data > 5Y: 22
+Funds with data > 1Y: 29
+Funds with data > 5Y: 24
 
 ## MfDataProvider - Quick API Reference
 

@@ -79,25 +79,34 @@ def compile_sector(sector: str, results_dir: Path | None = None) -> pd.DataFrame
         merged = merged.drop(columns=["_name_alt"])
 
     # Normalize each model's score to 0-1 using mean and std (then min-max of z-scores)
+    # Missing (not ranked) is treated as 0 so that final_score is averaged over ALL models.
     score_cols = [f"score_{m}" for m in models]
+    n_models = len(models)
     norm_scores = []
     for m in models:
         col = f"score_{m}"
         s = merged[col].astype(float)
-        mu = s.mean()
-        std = s.std()
-        if std == 0 or np.isnan(std):
-            z = np.zeros_like(s)
+        valid = s.notna()
+        mu = s[valid].mean() if valid.any() else np.nan
+        std = s[valid].std() if valid.sum() > 1 else 0.0
+        if std == 0 or np.isnan(std) or (valid.sum() == 0):
+            z = np.zeros_like(s, dtype=float)
             z[:] = 0.5
         else:
             z = (s - mu) / std
-        zmin, zmax = z.min(), z.max()
-        if zmax - zmin == 0:
-            n = np.zeros_like(z) + 0.5
+        z_valid = z[valid]
+        if len(z_valid) == 0:
+            zmin = zmax = 0.0
+        else:
+            zmin, zmax = z_valid.min(), z_valid.max()
+        if zmax - zmin == 0 or (np.isnan(zmin) or np.isnan(zmax)):
+            n = np.zeros_like(z, dtype=float) + 0.5
         else:
             n = (z - zmin) / (zmax - zmin)
+        # Not ranked => 0 in 0-1 scale (worst), so combined score is penalized
+        n = np.where(valid, n, 0.0)
         norm_scores.append(n)
-    merged["final_score"] = np.round(np.nanmean(norm_scores, axis=0), 3)
+    merged["final_score"] = np.round(np.array(norm_scores).mean(axis=0), 3)
 
     # total_rank: 1 = best (highest final_score)
     merged = merged.sort_values("final_score", ascending=False).reset_index(drop=True)

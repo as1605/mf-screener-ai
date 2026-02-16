@@ -22,3 +22,8 @@ These algorithms are AI-generated and experimental. They rely on historical data
     *   [Claude Strategy](algorithms/Small%20Cap_Claude.md)
     *   [Gemini Strategy](algorithms/Small%20Cap_Gemini.md)
     *   [Codex Strategy](algorithms/Small%20Cap_Codex.md)
+
+*   [Mid Cap Strategy Overview](algorithms/Mid%20Cap.md)
+    *   [Claude Strategy](algorithms/Mid%20Cap_Claude.md)
+    *   [Gemini Strategy](algorithms/Mid%20Cap_Gemini.md)
+    *   [Codex Strategy](algorithms/Mid%20Cap_Codex.md)
