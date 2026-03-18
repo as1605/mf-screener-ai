@@ -25,11 +25,12 @@ Outputs:
 - data/tmp/Mid Cap_Codex_tuning_trials.csv
 """
 
+import argparse
 import sys
 import logging
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -1429,13 +1430,13 @@ def factor_group_name(factor: str) -> str:
 # ===================================================================
 # Main
 # ===================================================================
-def main() -> None:
+def main(date: Optional[str] = None) -> None:
     print("\n" + "=" * 84)
     print("  MID CAP MUTUAL FUND SCORING - CODEX (RESEARCH-LED, TUNED, REGIME-AWARE)")
     print(f"  Benchmark: Nifty Midcap 150 ({BENCHMARK_INDEX})")
     print("=" * 84)
 
-    provider = MfDataProvider()
+    provider = MfDataProvider(date=date)
 
     # --- Benchmark ---
     bench_df = provider.get_index_chart(BENCHMARK_INDEX)
@@ -1693,4 +1694,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    p = argparse.ArgumentParser(description="Mid Cap MF screener (Codex)")
+    p.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
+    main(date=p.parse_args().date)

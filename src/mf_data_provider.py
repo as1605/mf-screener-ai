@@ -577,14 +577,14 @@ class MfDataProvider:
             raise DataNotFoundError(f"Failed to get chart for index {index_id}: {str(e)}") from e
 
 
-def main() -> None:
+def main(date: Optional[str] = None) -> None:
     """
     Entry point: fetch all MFs and indices using parallel data fetch, then print summary.
     Called from __main__.
     """
     logger.info("Starting MfDataProvider - Fetching all data...")
     try:
-        provider = MfDataProvider()
+        provider = MfDataProvider(date=date)
         print("\n" + "=" * 70)
         print("FETCHING ALL MUTUAL FUNDS AND INDICES (parallel)")
         print("=" * 70)
@@ -614,4 +614,13 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    p = argparse.ArgumentParser(description="Fetch MF and index data into ./data/<date>/")
+    p.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Data folder under ./data (default: today)",
+    )
+    main(date=p.parse_args().date)

@@ -16,6 +16,7 @@ Author : Gemini
 Sector : Small Cap Fund
 """
 
+import argparse
 import os
 import sys
 import logging
@@ -54,7 +55,6 @@ SECTOR = "Small Cap"
 SUBSECTOR = "Small Cap Fund"
 BENCHMARK_INDEX = "Small Cap"           # .NISM250
 RISK_FREE_RATE = 0.065                  # ~6.5%
-DATA_DATE = "2026-02-13"
 WEEKS_PER_YEAR = 52
 MIN_WEEKS_1Y = 50
 MIN_WEEKS_3Y = 150
@@ -335,14 +335,14 @@ def compute_composite_score(df: pd.DataFrame) -> pd.DataFrame:
 # Main
 # ===================================================================
 
-def main():
+def main(date: Optional[str] = None):
     print("\n" + "=" * 70)
     print(f"  SMALL CAP MUTUAL FUND SCORING - GEMINI MODEL")
     print(f"  Target: Maximize 1-Year Returns")
     print(f"  Benchmark: {BENCHMARK_INDEX}")
     print("=" * 70)
 
-    provider = MfDataProvider()
+    provider = MfDataProvider(date=date)
     
     # Load Benchmark
     bench_df = provider.get_index_chart(BENCHMARK_INDEX)
@@ -417,4 +417,11 @@ def main():
     print("\n")
 
 if __name__ == "__main__":
-    main()
+    p = argparse.ArgumentParser(description="Small Cap MF screener (Gemini)")
+    p.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
+    main(date=p.parse_args().date)

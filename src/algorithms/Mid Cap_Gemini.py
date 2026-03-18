@@ -1,4 +1,4 @@
-
+import argparse
 import sys
 import os
 import numpy as np
@@ -155,13 +155,15 @@ def normalize_series(series, lower_is_better=False):
     else:
         return 100 * (series - min_val) / (max_val - min_val)
 
-def main():
+def main(date=None):
     SECTOR = "Mid Cap"
     MODEL = "Gemini"
     
     print(f"Starting analysis for {SECTOR} using {MODEL} strategy...")
+    if date:
+        print(f"Data snapshot: {date}")
     
-    provider = MfDataProvider()
+    provider = MfDataProvider(date=date)
     
     # Get all funds in sector
     sectors = provider.list_mf_by_sector()
@@ -277,4 +279,11 @@ def main():
     print(f"Results saved to {output_path}")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Mid Cap MF screener (Gemini)")
+    parser.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
+    main(date=parser.parse_args().date)

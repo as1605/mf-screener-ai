@@ -39,6 +39,7 @@ Sector  : Total Market
 Author  : Claude
 """
 
+import argparse
 import sys
 import logging
 import warnings
@@ -1168,7 +1169,7 @@ def _num(v: object) -> str:
 # Main
 # ===================================================================
 
-def main() -> None:
+def main(date: Optional[str] = None) -> None:
     print("\n" + "=" * 84)
     print("  TOTAL MARKET MUTUAL FUND SCORING ALGORITHM — CLAUDE")
     print(f"  Benchmark : Nifty 500 ({BENCHMARK_INDEX})")
@@ -1176,7 +1177,7 @@ def main() -> None:
     print("  Model     : Adaptive multi-horizon conviction + path quality")
     print("=" * 84)
 
-    provider = MfDataProvider()
+    provider = MfDataProvider(date=date)
 
     # --- Benchmark ---
     logger.info("Loading benchmark index data...")
@@ -1415,4 +1416,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    p = argparse.ArgumentParser(description="Total Market MF screener (Claude)")
+    p.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
+    main(date=p.parse_args().date)

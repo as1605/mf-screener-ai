@@ -18,11 +18,12 @@ Outputs:
 - data/tmp/Total Market_Codex_regime.csv
 """
 
+import argparse
 import sys
 import logging
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -1556,7 +1557,7 @@ def factor_group_name(factor: str) -> str:
     return "other"
 
 
-def main() -> None:
+def main(date: Optional[str] = None) -> None:
     print("\n" + "=" * 92)
     print("  TOTAL MARKET MUTUAL FUND SCORING ALGORITHM - CODEX")
     print("  Method: Walk-forward tuned multi-factor model with regime tilt")
@@ -1564,7 +1565,7 @@ def main() -> None:
     print("  Subsectors: " + ", ".join(SUBSECTORS))
     print("=" * 92)
 
-    provider = MfDataProvider()
+    provider = MfDataProvider(date=date)
 
     # --- Benchmark ---
     logger.info("Loading benchmark index data...")
@@ -1841,4 +1842,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    p = argparse.ArgumentParser(description="Total Market MF screener (Codex)")
+    p.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
+    main(date=p.parse_args().date)

@@ -17,11 +17,12 @@ Outputs:
 - data/tmp/Small Cap_Codex_tuning_trials.csv
 """
 
+import argparse
 import sys
 import logging
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -1316,13 +1317,13 @@ def num_fmt(x: float) -> str:
 # ===================================================================
 # Main
 # ===================================================================
-def main() -> None:
+def main(date: Optional[str] = None) -> None:
     print("\n" + "=" * 80)
     print("  SMALL CAP MUTUAL FUND SCORING - CODEX (TUNED + BACKTESTED)")
     print(f"  Benchmark : Nifty SmallCap 250 ({BENCHMARK_INDEX})")
     print("=" * 80)
 
-    provider = MfDataProvider()
+    provider = MfDataProvider(date=date)
 
     # --- Benchmark ---
     bench_df = provider.get_index_chart(BENCHMARK_INDEX)
@@ -1617,4 +1618,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    p = argparse.ArgumentParser(description="Small Cap MF screener (Codex)")
+    p.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
+    main(date=p.parse_args().date)

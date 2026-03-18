@@ -33,6 +33,7 @@ Sector : Small Cap Fund
 """
 
 import os
+import argparse
 import sys
 import logging
 import warnings
@@ -70,7 +71,6 @@ SECTOR = "Small Cap"
 SUBSECTOR = "Small Cap Fund"
 BENCHMARK_INDEX = "Small Cap"           # resolved to .NISM250 by provider
 RISK_FREE_RATE = 0.065                  # annualised (Indian T-bill proxy ~6.5 %)
-DATA_DATE = "2026-02-13"                # date folder containing cached data
 WEEKS_PER_YEAR = 52
 MIN_WEEKS_1Y = 50
 MIN_WEEKS_3Y = 150
@@ -393,15 +393,15 @@ def compute_composite_score(df: pd.DataFrame) -> pd.DataFrame:
 # Entry point
 # ===================================================================
 
-def main():
+def main(date: Optional[str] = None):
     print("\n" + "=" * 70)
     print(f"  SMALL CAP MUTUAL FUND SCORING ALGORITHM")
-    print(f"  Data date : {DATA_DATE}")
     print(f"  Benchmark : Nifty SmallCap 250 ({BENCHMARK_INDEX})")
     print("=" * 70)
 
     # --- Initialise data provider ---
-    provider = MfDataProvider()
+    provider = MfDataProvider(date=date)
+    print(f"  Data folder : {Path(provider.data_dir).name}")
 
     # --- Load benchmark ---
     logger.info("Loading benchmark index data...")
@@ -506,4 +506,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    p = argparse.ArgumentParser(description="Small Cap MF screener (Claude)")
+    p.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
+    main(date=p.parse_args().date)

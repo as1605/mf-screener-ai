@@ -31,6 +31,7 @@ Sector  : Mid Cap Fund
 Author  : Claude
 """
 
+import argparse
 import sys
 import logging
 import warnings
@@ -905,14 +906,14 @@ def _num(v: object) -> str:
 # Main
 # ===================================================================
 
-def main() -> None:
+def main(date: Optional[str] = None) -> None:
     print("\n" + "=" * 80)
     print("  MID CAP MUTUAL FUND SCORING ALGORITHM — CLAUDE")
     print(f"  Benchmark : Nifty Midcap 150 ({BENCHMARK_INDEX})")
     print("  Model     : Multi-factor + regime analysis + consistency metrics")
     print("=" * 80)
 
-    provider = MfDataProvider()
+    provider = MfDataProvider(date=date)
 
     # --- Benchmark ---
     logger.info("Loading benchmark index data...")
@@ -1096,4 +1097,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    p = argparse.ArgumentParser(description="Mid Cap MF screener (Claude)")
+    p.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
+    main(date=p.parse_args().date)

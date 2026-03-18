@@ -35,6 +35,7 @@ Sector  : Total Market
 Author  : Gemini
 """
 
+import argparse
 import sys
 import logging
 import warnings
@@ -432,13 +433,13 @@ def _num(v): return f"{v:.2f}" if pd.notna(v) else ""
 # Main
 # ===================================================================
 
-def main():
+def main(date: Optional[str] = None):
     print("\n" + "=" * 80)
     print("  TOTAL MARKET MUTUAL FUND SCORING ALGORITHM — GEMINI")
     print(f"  Benchmark : {BENCHMARK_INDEX}")
     print("=" * 80)
 
-    provider = MfDataProvider()
+    provider = MfDataProvider(date=date)
 
     # --- Load Indices ---
     logger.info("Loading Index Data...")
@@ -535,4 +536,11 @@ def main():
     print(export_df.head(20).to_string(index=False))
 
 if __name__ == "__main__":
-    main()
+    p = argparse.ArgumentParser(description="Total Market MF screener (Gemini)")
+    p.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
+    main(date=p.parse_args().date)
