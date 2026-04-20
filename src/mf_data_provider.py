@@ -8,6 +8,8 @@ Author: Claude Sonnet 4.5 Extended
 Version: 1.0.0
 """
 
+import json
+import math
 import os
 import logging
 import requests
@@ -50,6 +52,7 @@ class MfDataProvider:
     Features:
     - Fetches mutual fund listings and historical data
     - Fetches index historical data
+    - Parallel :meth:`prefetch_all_holdings` then :meth:`read_mf_holdings` / :meth:`read_mf_chart` (disk-only)
     - Automatic caching with date-based directories
     - Retry logic for API failures
     - Rate limiting to prevent API throttling
@@ -64,6 +67,8 @@ class MfDataProvider:
     # API Configuration
     MF_LIST_URL = "https://api.tickertape.in/mf-screener/query"
     MF_CHART_URL = "https://api.tickertape.in/mutualfunds/{mfId}/charts/inter"
+    MF_HOLDINGS_URL = "https://api.tickertape.in/mutualfunds/{mfId}/holdings"
+    PORTFOLIO_SUFFIX = ".csv"
     INDEX_CHART_URL = "https://api.tickertape.in/stocks/charts/inter/{indexId}"
     HEADERS = {"accept-version": "8.14.0"}
     
@@ -82,6 +87,7 @@ class MfDataProvider:
     # Parallel fetch settings (for fetch_all_data)
     MF_CHART_MAX_WORKERS = 12
     INDEX_CHART_MAX_WORKERS = 5
+    MF_HOLDINGS_MAX_WORKERS = 10
 
     def __init__(self, base_dir: str = './data', date: Optional[str] = None):
         """
@@ -117,26 +123,27 @@ class MfDataProvider:
         Path(self.data_dir).mkdir(parents=True, exist_ok=True)
         Path(os.path.join(self.data_dir, 'mf')).mkdir(parents=True, exist_ok=True)
         Path(os.path.join(self.data_dir, 'index')).mkdir(parents=True, exist_ok=True)
+        Path(os.path.join(self.data_dir, 'portfolio')).mkdir(parents=True, exist_ok=True)
         logger.debug(f"Directory structure created at {self.data_dir}")
     
-    def _create_session(self) -> requests.Session:
-        """
-        Create a requests session with retry logic.
-        
-        Returns:
-            requests.Session: Configured session object
-        """
+    @staticmethod
+    def _new_http_session() -> requests.Session:
+        """Thread-safe: new session per call (for parallel workers)."""
         session = requests.Session()
         retry_strategy = Retry(
             total=3,
             backoff_factor=1,
             status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["GET", "POST"]
+            allowed_methods=["GET", "POST"],
         )
         adapter = HTTPAdapter(max_retries=retry_strategy)
         session.mount("http://", adapter)
         session.mount("https://", adapter)
         return session
+
+    def _create_session(self) -> requests.Session:
+        """Session for this provider instance (sequential API calls)."""
+        return self._new_http_session()
     
     def _make_request(self, method: str, url: str, **kwargs) -> Dict[str, Any]:
         """
@@ -297,7 +304,7 @@ class MfDataProvider:
         mf_file = os.path.join(self.data_dir, 'mf', f'{mf_id}.csv')
         url = self.MF_CHART_URL.format(mfId=mf_id)
         params = {'duration': 'max'}
-        session = self._create_session()
+        session = self._new_http_session()
         try:
             response = session.get(url, params=params, headers=self.HEADERS, timeout=30)
             response.raise_for_status()
@@ -327,7 +334,7 @@ class MfDataProvider:
         index_file = os.path.join(self.data_dir, 'index', f'{safe_index_id}.csv')
         url = self.INDEX_CHART_URL.format(indexId=index_id)
         params = {'duration': 'max'}
-        session = self._create_session()
+        session = self._new_http_session()
         try:
             response = session.get(url, params=params, timeout=30)
             response.raise_for_status()
@@ -346,7 +353,76 @@ class MfDataProvider:
             return (index_id, None)
         except Exception as e:
             return (index_id, e)
-    
+
+    @staticmethod
+    def _portfolio_csv_path(data_dir: str, mf_id: str) -> str:
+        return os.path.join(data_dir, "portfolio", f"{mf_id}{MfDataProvider.PORTFOLIO_SUFFIX}")
+
+    @staticmethod
+    def _portfolio_json_path(data_dir: str, mf_id: str) -> str:
+        return os.path.join(data_dir, "portfolio", f"{mf_id}.json")
+
+    @staticmethod
+    def _write_holdings_csv(path: str, holdings: List[Dict[str, Any]]) -> None:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        if not holdings:
+            pd.DataFrame(
+                columns=["type", "title", "latest", "sid", "ticker", "change3m"]
+            ).to_csv(path, index=False)
+            return
+        pd.DataFrame(holdings).to_csv(path, index=False)
+
+    @staticmethod
+    def _read_holdings_csv(path: str) -> List[Dict[str, Any]]:
+        if not os.path.isfile(path):
+            return []
+        try:
+            df = pd.read_csv(path)
+        except (pd.errors.EmptyDataError, pd.errors.ParserError):
+            return []
+        if df.empty:
+            return []
+        records = df.to_dict("records")
+        for r in records:
+            for k, v in list(r.items()):
+                if v is None:
+                    continue
+                if isinstance(v, float) and math.isnan(v):
+                    r[k] = None
+                elif pd.isna(v):
+                    r[k] = None
+        return records
+
+    @staticmethod
+    def _fetch_one_mf_holdings_to_disk(data_dir: str, mf_id: str) -> Tuple[str, Optional[Exception]]:
+        """Fetch holdings for one fund; thread-safe. Writes portfolio/{mfId}.csv."""
+        path = MfDataProvider._portfolio_csv_path(data_dir, mf_id)
+        url = MfDataProvider.MF_HOLDINGS_URL.format(mfId=mf_id)
+        session = MfDataProvider._new_http_session()
+        holdings: List[Dict[str, Any]] = []
+        try:
+            response = session.get(url, headers=MfDataProvider.HEADERS, timeout=30)
+            response.raise_for_status()
+            parsed = response.json()
+            data = parsed.get("data") if isinstance(parsed, dict) else None
+            if not isinstance(data, dict):
+                data = {}
+            raw = data.get("currentAllocation")
+            if raw is None:
+                raw = data.get("holdings") or []
+            if isinstance(raw, list):
+                holdings = raw
+            MfDataProvider._write_holdings_csv(path, holdings)
+            legacy = MfDataProvider._portfolio_json_path(data_dir, mf_id)
+            if os.path.isfile(legacy):
+                try:
+                    os.remove(legacy)
+                except OSError:
+                    pass
+            return (mf_id, None)
+        except Exception as e:
+            return (mf_id, e)
+
     def fetch_index_chart(self, index_id: str, force_refresh: bool = False) -> pd.DataFrame:
         """
         Fetch historical chart data for a specific index.
@@ -575,6 +651,178 @@ class MfDataProvider:
             return self.fetch_index_chart(index_id, force_refresh=False)
         except APIError as e:
             raise DataNotFoundError(f"Failed to get chart for index {index_id}: {str(e)}") from e
+
+    def read_mf_chart(self, mf_id: str) -> pd.DataFrame:
+        """
+        Load cached MF NAV series from disk only (no network).
+
+        Returns:
+            DataFrame [timestamp, nav] or empty DataFrame if file missing.
+        """
+        mf_file = os.path.join(self.data_dir, "mf", f"{mf_id}.csv")
+        if not os.path.isfile(mf_file):
+            return pd.DataFrame(columns=["timestamp", "nav"])
+        return pd.read_csv(mf_file)
+
+    def read_mf_holdings(self, mf_id: str) -> List[Dict[str, Any]]:
+        """
+        Load cached holdings from disk only (no network): ``portfolio/{mfId}.csv``.
+        Migrates legacy ``.json`` to CSV on first read. Run :meth:`prefetch_all_holdings` to fetch.
+        """
+        csv_path = self._portfolio_csv_path(self.data_dir, mf_id)
+        json_path = self._portfolio_json_path(self.data_dir, mf_id)
+        if os.path.isfile(csv_path):
+            return self._read_holdings_csv(csv_path)
+        if os.path.isfile(json_path):
+            with open(json_path, encoding="utf-8") as f:
+                holdings = json.load(f)
+            if not isinstance(holdings, list):
+                holdings = []
+            self._write_holdings_csv(csv_path, holdings)
+            try:
+                os.remove(json_path)
+            except OSError:
+                pass
+            return holdings
+        return []
+
+    def prefetch_all_holdings(
+        self,
+        max_workers: Optional[int] = None,
+        force_refresh: bool = False,
+        mf_ids: Optional[List[str]] = None,
+    ) -> Dict[str, int]:
+        """
+        Parallel-fetch holdings into ``portfolio/{mfId}.csv``.
+
+        Skips funds that already have CSV (or legacy JSON) unless ``force_refresh`` is True.
+
+        Args:
+            max_workers: Thread pool size (default: :attr:`MF_HOLDINGS_MAX_WORKERS`).
+            force_refresh: Refetch even when cache exists.
+            mf_ids: Fund ids to fetch; default is all ids from :meth:`list_all_mf`.
+
+        Returns:
+            Counts: success, failed, skipped (already on disk).
+        """
+        if max_workers is None:
+            max_workers = self.MF_HOLDINGS_MAX_WORKERS
+        max_workers = max(1, int(max_workers))
+
+        if mf_ids is None:
+            df = self.list_all_mf()
+            mf_ids = [str(x) for x in df["mfId"].tolist()]
+        else:
+            mf_ids = [str(x) for x in mf_ids]
+
+        need_fetch: List[str] = []
+        for mid in mf_ids:
+            csv_p = self._portfolio_csv_path(self.data_dir, mid)
+            json_p = self._portfolio_json_path(self.data_dir, mid)
+            cached = os.path.isfile(csv_p) or os.path.isfile(json_p)
+            if force_refresh or not cached:
+                need_fetch.append(mid)
+
+        skipped = len(mf_ids) - len(need_fetch)
+        if not need_fetch:
+            logger.info(
+                "Holdings prefetch: all %d funds already cached (use force_refresh to refetch)",
+                len(mf_ids),
+            )
+            return {"success": 0, "failed": 0, "skipped": skipped}
+
+        logger.info(
+            "Holdings prefetch: fetching %d funds (%d workers), %d skipped",
+            len(need_fetch),
+            max_workers,
+            skipped,
+        )
+        success, failed = 0, 0
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(
+                    MfDataProvider._fetch_one_mf_holdings_to_disk, self.data_dir, mid
+                ): mid
+                for mid in need_fetch
+            }
+            for idx, future in enumerate(as_completed(futures), 1):
+                mid, err = future.result()
+                if err is None:
+                    success += 1
+                else:
+                    failed += 1
+                    logger.warning("Holdings fetch failed for %s: %s", mid, err)
+                if idx % 100 == 0:
+                    logger.info("Holdings prefetch progress: %d / %d", idx, len(need_fetch))
+
+        logger.info(
+            "Holdings prefetch done: ok=%d failed=%d skipped=%d",
+            success,
+            failed,
+            skipped,
+        )
+        return {"success": success, "failed": failed, "skipped": skipped}
+
+    def get_mf_holdings(self, mf_id: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
+        """
+        Fetch mutual fund portfolio holdings from Tickertape and cache as CSV.
+
+        Caches to ``{data_dir}/portfolio/{mfId}.csv`` (rows from ``data.currentAllocation``).
+        """
+        csv_path = self._portfolio_csv_path(self.data_dir, mf_id)
+        json_path = self._portfolio_json_path(self.data_dir, mf_id)
+
+        if not force_refresh:
+            if os.path.isfile(csv_path):
+                return self._read_holdings_csv(csv_path)
+            if os.path.isfile(json_path):
+                with open(json_path, encoding="utf-8") as f:
+                    h = json.load(f)
+                if isinstance(h, list):
+                    self._write_holdings_csv(csv_path, h)
+                    try:
+                        os.remove(json_path)
+                    except OSError:
+                        pass
+                    return h
+
+        holdings: List[Dict[str, Any]] = []
+        url = self.MF_HOLDINGS_URL.format(mfId=mf_id)
+        try:
+            sleep(self.REQUEST_DELAY)
+            response = self.session.get(url, headers=self.HEADERS, timeout=30)
+            response.raise_for_status()
+            parsed = response.json()
+            data = parsed.get("data") if isinstance(parsed, dict) else None
+            if not isinstance(data, dict):
+                data = {}
+            raw = data.get("currentAllocation")
+            if raw is None:
+                raw = data.get("holdings") or []
+            if isinstance(raw, list):
+                holdings = raw
+        except Exception as e:
+            logger.warning("Holdings fetch failed for %s: %s", mf_id, e)
+            if os.path.isfile(csv_path):
+                return self._read_holdings_csv(csv_path)
+            if os.path.isfile(json_path):
+                with open(json_path, encoding="utf-8") as f:
+                    return json.load(f)
+            return []
+
+        self._write_holdings_csv(csv_path, holdings)
+        if os.path.isfile(json_path):
+            try:
+                os.remove(json_path)
+            except OSError:
+                pass
+        return holdings
+
+    def get_portfolio(self, ticker: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
+        """
+        Alias for :meth:`get_mf_holdings` (``ticker`` is the mutual fund id / mfId).
+        """
+        return self.get_mf_holdings(ticker, force_refresh=force_refresh)
 
 
 def main(date: Optional[str] = None) -> None:
