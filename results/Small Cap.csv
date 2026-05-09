@@ -1,33 +1,34 @@
 mfId,name,total_rank,final_score,avg_data_days,avg_cagr_3y,score_Claude,score_Codex,score_Gemini
-M_BOIL,Bank of India Small Cap Fund,1,0.958,2675.0,21.78,73.75,74.06,78.0
-M_NIMS,Nippon India Small Cap Fund,2,0.941,4852.0,20.16,80.89,64.69,79.58
-M_DSPSM,DSP Small Cap Fund,3,0.924,4852.0,20.46,74.83,73.1,71.58
-M_MAAI,Mahindra Manulife Small Cap Fund,4,0.912,1219.0,24.68,70.91,71.2,75.17
-M_IDFM,Bandhan Small Cap Fund,5,0.878,2241.0,30.61,69.23,68.61,73.17
-M_UNSL,Union Small Cap Fund,6,0.769,4327.0,20.11,61.94,68.36,59.0
-M_INEP,Invesco India Smallcap Fund,7,0.748,2724.0,24.5,66.65,63.97,56.08
-M_QUNF,Quant Small Cap Fund,8,0.747,4845.0,19.86,77.5,48.84,64.33
-M_SUNSP,Sundaram Small Cap Fund,9,0.671,4852.0,19.96,55.03,60.13,56.42
-M_TRMU,TRUSTMF Small Cap Fund,10,0.646,526.0,N/A (insufficient history),63.12,68.11,34.33
-M_FRSM,Franklin India Small Cap Fund,11,0.619,4852.0,18.2,58.02,45.24,61.83
-M_AXMC,Axis Small Cap Fund,12,0.594,4523.0,17.45,62.66,32.97,67.75
-M_EDEC,Edelweiss Small Cap Fund,13,0.573,2626.0,19.52,53.04,51.43,49.83
-M_LTES,HSBC Small Cap Fund,14,0.563,4355.0,16.76,52.84,48.38,51.83
-M_IDIS,LIC MF Small Cap Fund,15,0.539,3221.0,18.59,46.0,55.0,45.42
-M_MIPA,Mirae Asset Small Cap Fund,16,0.52,435.0,N/A (insufficient history),46.65,60.5,34.33
-M_ADICM,Aditya Birla SL Small Cap Fund,17,0.497,4852.0,17.75,36.23,52.33,49.5
-M_ICCDS,ICICI Pru Smallcap Fund,18,0.494,4852.0,15.57,53.12,36.6,52.67
-M_MOON,Motilal Oswal Small Cap Fund,19,0.481,841.0,N/A (insufficient history),43.23,52.96,39.0
-M_HDFSU,HDFC Small Cap Fund,20,0.466,4852.0,16.83,47.05,42.08,46.08
-M_ITIM,ITI Small Cap Fund,21,0.46,2248.0,25.18,37.33,49.78,44.42
-M_KOSM,Kotak Small Cap Fund,22,0.414,4852.0,14.97,44.29,27.61,56.08
-M_CANM,Canara Rob Small Cap Fund,23,0.4,2619.0,16.33,37.71,41.96,41.92
-M_UTSSA,UTI Small Cap Fund,24,0.377,1940.0,17.9,38.12,32.87,48.25
-M_SBILM,SBI Small Cap Fund,25,0.369,4852.0,13.92,41.4,21.16,58.0
-M_BARDN,Baroda BNP Paribas Small Cap Fund,26,0.313,897.0,N/A (insufficient history),17.03,54.65,28.5
-M_TASC,Tata Small Cap Fund,27,0.303,2710.0,13.24,37.46,30.04,37.92
-M_QUUS,Quantum Small Cap Fund,28,0.248,897.0,N/A (insufficient history),26.27,44.29,20.0
-M_PGSE,PGIM India Small Cap Fund,29,0.203,1723.0,16.3,26.71,41.15,14.67
-M_JMPT,JM Small Cap Fund,30,0.135,666.0,N/A (insufficient history),15.57,34.88,19.33
-M_BAJFP,Bajaj Finserv Small Cap Fund,31,0.127,267.0,N/A (insufficient history),37.27,N/A (not ranked),N/A (not ranked)
-M_HEOI,Helios Small Cap Fund,32,0.0,141.0,N/A (insufficient history),10.42,N/A (not ranked),N/A (not ranked)
+M_BOIL,Bank of India Small Cap Fund,1,0.973,2696.0,22.82,75.22,80.52,77.0
+M_NIMS,Nippon India Small Cap Fund,2,0.887,4873.0,20.54,79.66,61.74,75.75
+M_QUNF,Quant Small Cap Fund,3,0.834,4866.0,21.39,80.66,56.52,70.25
+M_IDFM,Bandhan Small Cap Fund,4,0.828,2262.0,31.31,67.9,68.24,69.17
+M_UNSL,Union Small Cap Fund,5,0.824,4348.0,21.69,66.9,77.51,60.33
+M_MAAI,Mahindra Manulife Small Cap Fund,6,0.824,1240.0,24.77,68.8,65.08,70.75
+M_DSPSM,DSP Small Cap Fund,7,0.777,4873.0,20.51,66.29,64.32,65.33
+M_INEP,Invesco India Smallcap Fund,8,0.692,2745.0,25.0,65.61,60.15,54.67
+M_SUNSP,Sundaram Small Cap Fund,9,0.685,4873.0,21.22,59.46,61.66,57.42
+M_TRMU,TRUSTMF Small Cap Fund,10,0.657,547.0,N/A (insufficient history),67.28,68.35,38.83
+M_LTES,HSBC Small Cap Fund,11,0.635,4376.0,18.17,57.74,55.52,55.75
+M_IDIS,LIC MF Small Cap Fund,12,0.625,3242.0,19.96,51.98,67.29,47.75
+M_AXMC,Axis Small Cap Fund,13,0.594,4544.0,18.12,63.45,32.56,65.67
+M_FRSM,Franklin India Small Cap Fund,14,0.584,4873.0,19.1,57.8,42.78,58.83
+M_EDEC,Edelweiss Small Cap Fund,15,0.561,2647.0,20.26,53.91,48.51,52.67
+M_ITIM,ITI Small Cap Fund,16,0.525,2269.0,26.97,40.78,59.65,47.08
+M_MOON,Motilal Oswal Small Cap Fund,17,0.514,862.0,N/A (insufficient history),44.25,57.06,44.5
+M_ADICM,Aditya Birla SL Small Cap Fund,18,0.465,4873.0,19.07,36.09,52.52,47.25
+M_KOSM,Kotak Small Cap Fund,19,0.396,4873.0,15.36,44.85,24.75,54.0
+M_UTSSA,UTI Small Cap Fund,20,0.39,1961.0,18.66,38.84,34.02,49.33
+M_ICCDS,ICICI Pru Smallcap Fund,21,0.381,4873.0,15.34,47.21,25.91,48.08
+M_MIPA,Mirae Asset Small Cap Fund,22,0.366,456.0,N/A (insufficient history),37.24,52.3,28.67
+M_CANM,Canara Rob Small Cap Fund,23,0.366,2640.0,16.88,36.39,38.63,42.67
+M_HDFSU,HDFC Small Cap Fund,24,0.338,4873.0,16.58,41.67,27.54,43.75
+M_SBILM,SBI Small Cap Fund,25,0.336,4873.0,13.99,39.43,18.49,54.0
+M_BARDN,Baroda BNP Paribas Small Cap Fund,26,0.313,918.0,N/A (insufficient history),18.57,56.62,31.5
+M_TASC,Tata Small Cap Fund,27,0.301,2731.0,13.82,39.22,26.57,40.08
+M_JMPT,JM Small Cap Fund,28,0.29,687.0,N/A (insufficient history),25.2,48.56,29.33
+M_PGSE,PGIM India Small Cap Fund,29,0.232,1744.0,17.11,30.84,44.47,17.75
+M_QUUS,Quantum Small Cap Fund,30,0.137,918.0,N/A (insufficient history),18.88,38.79,16.83
+M_BAJFP,Bajaj Finserv Small Cap Fund,31,0.116,288.0,N/A (insufficient history),36.61,N/A (not ranked),N/A (not ranked)
+M_SACP,Samco Small Cap Fund,32,0.075,148.0,N/A (insufficient history),28.33,N/A (not ranked),N/A (not ranked)
+M_HEOI,Helios Small Cap Fund,33,0.0,162.0,N/A (insufficient history),13.18,N/A (not ranked),N/A (not ranked)
