@@ -1,11 +1,13 @@
 # MF Scoring Algorithm
 
-{SECTOR}={Small Cap}
+{SECTOR}={Multi Asset}
 {model}={GPT}
 
 Your task is to create an algorithm to score Indian Mutual Funds from {SECTOR} sector. A higher score should predict higher returns in the next 1 year. You are given NAV history of all funds in that sector from MfDataProvider for last 5 years.
 
 Do your own research, do not copy implementations of other models.
+
+The fund should be able to take advantage of cycles properly for long term strategic growth. They should increase when gold or silver increases, while also managing risk in down cycles.
 
 ## Task
 - Understand how MfDataProvider can be used (given below).
@@ -23,9 +25,14 @@ Do your own research, do not copy implementations of other models.
 
 ## Data Statistics
 
-Sector Name: Equity
+Sector Name: Hybrid
 Sub Sector Names:
-- Small Cap Fund
+- Multi Asset Allocation Fund
+
+Indices:
+- Gold: M_SBIGL
+- Silver: M_ICPVF (Only from 2022 onwards)
+- Equity: _NIFTY500, _NSEI
 
 ## MfDataProvider - Quick API Reference
 

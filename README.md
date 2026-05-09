@@ -9,7 +9,8 @@ A vibecoding project to analyze mutual funds using AI-generated strategies. This
 *   [**Algorithms**](docs/ALGORITHMS.md): Introduction to the AI-generated strategies.
     *   [Small Cap Strategy](docs/algorithms/Small%20Cap.md)
     *   [Mid Cap Strategy](docs/algorithms/Mid%20Cap.md)
-    *   [Total Market Strategy](docs/algorithms/Total%20Market.md) ⭐ *New*
+    *   [Total Market Strategy](docs/algorithms/Total%20Market.md)
+    *   [Multi Asset Allocation Strategy](docs/algorithms/Multi%20Asset.md) ⭐ *New*
 *   [**Spreadsheet Results**](https://docs.google.com/spreadsheets/d/1fH5cMXYqR1WQwCO0Xel26b44CbZnCTzgQyINPgdj7QI): View the final scores and rankings.
 
 ## Workflow
