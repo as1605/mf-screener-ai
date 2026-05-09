@@ -1,6 +1,6 @@
 # MF Screener AI
 
-A vibecoding project to analyze mutual funds using AI-generated strategies. This project uses multiple AI models (Claude, Gemini, Codex) to create quantitative scoring algorithms for mutual funds.
+A vibecoding project to analyze mutual funds using AI-generated strategies. This project uses multiple AI models (Claude, Gemini, GPT) to create quantitative scoring algorithms for mutual funds.
 
 ## Navigation
 
@@ -15,7 +15,7 @@ A vibecoding project to analyze mutual funds using AI-generated strategies. This
 ## Workflow
 
 1.  **Data Fetching**: The `MfDataProvider` fetches mutual fund metadata and historical NAV data from TickerTape.
-2.  **Algorithm Scoring**: Different AI models (Claude, Gemini, Codex) have generated Python scripts to analyze the data and score funds based on various metrics like CAGR, Sharpe Ratio, Alpha, Momentum, etc.
+2.  **Algorithm Scoring**: Different AI models (Claude, Gemini, GPT) have generated Python scripts to analyze the data and score funds based on various metrics like CAGR, Sharpe Ratio, Alpha, Momentum, etc.
 3.  **Compilation**: The scores from all models are compiled and normalized to create a final composite ranking.
 4.  **Publishing**: The results are published to a Google Sheet for easy viewing and filtering.
 
@@ -34,8 +34,6 @@ This project is designed to be **forked and customized**. The core workflow is s
 3. **Use Cursor** (or your preferred AI coding assistant) to generate a new scoring algorithm
 4. **Run** the generated script to score funds in your chosen sector
 5. **Compare** your results with existing models
-
-The beauty of this approach is that each AI model brings a different perspective. Claude focuses on adaptive conviction, Gemini emphasizes multi-factor regression, and Codex uses walk-forward validation. **What strategy will your model create?**
 
 See [Setup Guide](docs/SETUP.md) for detailed instructions on running Task 2 Algorithm.
 

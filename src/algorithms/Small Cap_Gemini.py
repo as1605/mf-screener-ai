@@ -198,6 +198,102 @@ def compute_alpha_beta(fund_ret: pd.Series, bench_ret: pd.Series):
     
     return alpha, beta
 
+def information_ratio(fund_ret: pd.Series, bench_ret: pd.Series) -> Optional[float]:
+    """Information Ratio: Active Return / Tracking Error"""
+    aligned = pd.concat([fund_ret, bench_ret], axis=1, join="inner").dropna()
+    if len(aligned) < 20:
+        return None
+    
+    active_return = aligned.iloc[:, 0] - aligned.iloc[:, 1]
+    tracking_error = active_return.std() * np.sqrt(WEEKS_PER_YEAR)
+    
+    if tracking_error == 0:
+        return None
+        
+    ann_active_return = active_return.mean() * WEEKS_PER_YEAR
+    return ann_active_return / tracking_error
+
+def volatility_contraction(returns: pd.Series) -> Optional[float]:
+    """Ratio of short-term volatility (3M) to long-term volatility (1Y). Lower is better."""
+    if len(returns) < WEEKS_PER_YEAR:
+        return None
+        
+    vol_1y = returns.iloc[-WEEKS_PER_YEAR:].std() * np.sqrt(WEEKS_PER_YEAR)
+    vol_3m = returns.iloc[-13:].std() * np.sqrt(WEEKS_PER_YEAR)
+    
+    if vol_1y == 0:
+        return None
+        
+    return vol_3m / vol_1y
+
+def calculate_capture_ratios(fund_ret: pd.Series, bench_ret: pd.Series, weeks: int) -> Tuple[Optional[float], Optional[float]]:
+    """Calculate Upside and Downside Capture Ratios over the last N weeks."""
+    aligned = pd.concat([fund_ret, bench_ret], axis=1, join="inner").dropna()
+    if len(aligned) < weeks:
+        return None, None
+        
+    aligned = aligned.iloc[-weeks:]
+    fund_r = aligned.iloc[:, 0]
+    bench_r = aligned.iloc[:, 1]
+    
+    up_months = bench_r > 0
+    down_months = bench_r < 0
+    
+    up_capture = None
+    if up_months.sum() > 0:
+        bench_up_ret = bench_r[up_months].mean()
+        if bench_up_ret > 0:
+            up_capture = fund_r[up_months].mean() / bench_up_ret
+            
+    down_capture = None
+    if down_months.sum() > 0:
+        bench_down_ret = bench_r[down_months].mean()
+        if bench_down_ret < 0:
+            down_capture = fund_r[down_months].mean() / bench_down_ret
+            
+    return up_capture, down_capture
+
+def calculate_rolling_sip_alpha(fund_nav: pd.Series, bench_nav: pd.Series, months: int = 12) -> pd.Series:
+    """Calculate rolling 1Y SIP alpha (fund SIP return - benchmark SIP return)."""
+    # Resample to monthly
+    fund_monthly = fund_nav.resample('MS').first()
+    bench_monthly = bench_nav.resample('MS').first()
+    
+    aligned = pd.concat([fund_monthly, bench_monthly], axis=1, join="inner").dropna()
+    if len(aligned) < months + 1:
+        return pd.Series(dtype=float)
+        
+    alphas = {}
+    for i in range(len(aligned) - months):
+        f_invest = aligned.iloc[i : i+months, 0]
+        f_final = aligned.iloc[i+months, 0]
+        
+        b_invest = aligned.iloc[i : i+months, 1]
+        b_final = aligned.iloc[i+months, 1]
+        
+        # Fund SIP Return
+        f_units = 1000 / f_invest
+        f_val = f_units.sum() * f_final
+        f_ret = (f_val - (1000 * months)) / (1000 * months)
+        
+        # Benchmark SIP Return
+        b_units = 1000 / b_invest
+        b_val = b_units.sum() * b_final
+        b_ret = (b_val - (1000 * months)) / (1000 * months)
+        
+        alphas[aligned.index[i+months]] = f_ret - b_ret
+        
+    return pd.Series(alphas)
+
+def calculate_trend_slope(series: pd.Series) -> Optional[float]:
+    """Calculate the linear trend slope of a series."""
+    if len(series) < 3:
+        return None
+    x = np.arange(len(series))
+    y = series.values
+    slope, _ = np.polyfit(x, y, 1)
+    return slope
+
 # ===================================================================
 # Analysis Pipeline
 # ===================================================================
@@ -219,45 +315,29 @@ def analyse_fund(
     bench_rets = weekly_returns(bench_nav)
     
     # Basic Metrics
-    result["cagr_1y"] = annualised_return(fund_nav, MIN_WEEKS_1Y)
     result["cagr_3y"] = annualised_return(fund_nav, MIN_WEEKS_3Y)
     result["cagr_5y"] = annualised_return(fund_nav, MIN_WEEKS_5Y)
     
-    primary_cagr = result["cagr_3y"] or result["cagr_1y"]
-    
-    # Volatility & Risk
-    vol = annualised_volatility(rets)
-    result["volatility"] = vol
-    result["max_drawdown"] = max_drawdown(fund_nav)
-    
     # Advanced Risk-Adjusted
-    result["sharpe"] = sharpe_ratio(primary_cagr, vol)
-    result["sortino"] = sortino_ratio(rets)
     result["omega"] = omega_ratio(rets, threshold=RISK_FREE_RATE)
-    result["upside_potential"] = upside_potential_ratio(rets, mar=RISK_FREE_RATE)
+    result["info_ratio"] = information_ratio(rets, bench_rets)
+    result["vol_contraction"] = volatility_contraction(rets)
     
-    # Benchmark Relative
-    alpha, beta = compute_alpha_beta(rets, bench_rets)
-    result["alpha"] = alpha
-    result["beta"] = beta
+    # Capture Ratios (6M Upside, 1Y Downside)
+    up_cap_6m, _ = calculate_capture_ratios(rets, bench_rets, 26)
+    _, down_cap_1y = calculate_capture_ratios(rets, bench_rets, 52)
+    result["up_cap_6m"] = up_cap_6m
+    result["down_cap_1y"] = down_cap_1y
     
-    # Momentum (Crucial for 1Y horizon)
-    result["ret_3m"] = annualised_return(fund_nav, 13)
-    result["ret_6m"] = annualised_return(fund_nav, 26)
-    
-    bench_ret_3m = annualised_return(bench_nav, 13)
-    bench_ret_6m = annualised_return(bench_nav, 26)
-    
-    if result["ret_6m"] is not None and bench_ret_6m is not None:
-        result["momentum_6m"] = result["ret_6m"] - bench_ret_6m
+    # Rolling SIP Alpha Trend
+    rolling_alphas = calculate_rolling_sip_alpha(fund_nav, bench_nav, months=12)
+    if len(rolling_alphas) >= 12:
+        # Trend over the last 12 rolling periods (approx 1 year of rolling data)
+        recent_alphas = rolling_alphas.iloc[-12:]
+        result["sip_alpha_trend"] = calculate_trend_slope(recent_alphas)
     else:
-        result["momentum_6m"] = None
-        
-    if result["ret_3m"] is not None and bench_ret_3m is not None:
-        result["momentum_3m"] = result["ret_3m"] - bench_ret_3m
-    else:
-        result["momentum_3m"] = None
-
+        result["sip_alpha_trend"] = None
+    
     # Trend Persistence
     result["hurst"] = hurst_exponent(fund_nav.values)
     
@@ -277,29 +357,24 @@ def percentile_rank(series: pd.Series, higher_is_better: bool = True) -> pd.Seri
 
 def compute_composite_score(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Build composite score optimized for 1-year forward returns.
+    Build composite score optimized for 1-year forward returns based on predictive metrics.
     
     Weights:
-    - Momentum (3M/6M): 20% (High weight for short-term prediction)
-    - Alpha: 20% (Skill persistence)
-    - Omega Ratio: 15% (Better risk-adjusted measure for non-normal returns)
-    - Sortino Ratio: 10% (Downside protection)
-    - Hurst Exponent: 10% (Trend persistence)
-    - Upside Potential: 10% (Asymmetry)
-    - CAGR (3Y): 10% (Medium term consistency)
-    - Max Drawdown: 5% (Disaster avoidance)
+    - Information Ratio: 25% (Consistency of manager skill)
+    - Rolling SIP Alpha Trend: 20% (Momentum of manager skill)
+    - Recent Upside Capture (6M): 15% (Participation in rebound)
+    - 1Y Downside Capture: 15% (Capital protection during consolidation - Lower is better)
+    - Omega Ratio: 15% (Overall risk-adjusted return profile)
+    - Volatility Contraction: 10% (Stabilization indicator - Lower is better)
     """
     
     score_components = {
-        "momentum_3m":          (True,  0.10),
-        "momentum_6m":          (True,  0.10),
-        "alpha":                (True,  0.20),
+        "info_ratio":           (True,  0.25),
+        "sip_alpha_trend":      (True,  0.20),
+        "up_cap_6m":            (True,  0.15),
+        "down_cap_1y":          (False, 0.15),
         "omega":                (True,  0.15),
-        "sortino":              (True,  0.10),
-        "hurst":                (True,  0.10),
-        "upside_potential":     (True,  0.10),
-        "cagr_3y":              (True,  0.10),
-        "max_drawdown":         (False, 0.05),
+        "vol_contraction":      (False, 0.10),
     }
     
     df = df.copy()
@@ -398,10 +473,13 @@ def main(date: Optional[str] = None):
     output["score"] = df_scored["score"]
     output["data_days"] = df_scored["data_days"]
     output["cagr_3y"] = df_scored["cagr_3y"].apply(lambda x: f"{x*100:.2f}" if pd.notna(x) else "")
-    output["alpha"] = df_scored["alpha"].apply(lambda x: f"{x*100:.2f}" if pd.notna(x) else "")
+    output["cagr_5y"] = df_scored["cagr_5y"].apply(lambda x: f"{x*100:.2f}" if pd.notna(x) else "")
+    output["info_ratio"] = df_scored["info_ratio"].apply(fmt)
+    output["sip_alpha_trend"] = df_scored["sip_alpha_trend"].apply(fmt)
+    output["up_cap_6m"] = df_scored["up_cap_6m"].apply(fmt)
+    output["down_cap_1y"] = df_scored["down_cap_1y"].apply(fmt)
+    output["vol_contraction"] = df_scored["vol_contraction"].apply(fmt)
     output["omega"] = df_scored["omega"].apply(fmt)
-    output["hurst"] = df_scored["hurst"].apply(fmt)
-    output["momentum_3m"] = df_scored["momentum_3m"].apply(lambda x: f"{x*100:.2f}" if pd.notna(x) else "")
     output["aum"] = df_scored["aum"]
     
     # Save

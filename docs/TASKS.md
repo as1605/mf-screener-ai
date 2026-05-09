@@ -10,7 +10,7 @@ This repository was built by following a series of tasks, each designed to build
 
 ## 2. Algorithm Generation (`tasks/2_algorithm.md`)
 **Goal**: Generate scoring algorithms using different AI models.
--   Prompted AI models (Claude, Gemini, Codex) to create Python scripts for scoring Small Cap funds.
+-   Prompted AI models (Claude, Gemini, GPT) to create Python scripts for scoring Small Cap funds.
 -   Each model implemented its own strategy using metrics like Alpha, Beta, Sharpe Ratio, Momentum, etc.
 -   Scripts output CSV files with scores and ranks.
 

@@ -1,33 +1,31 @@
 # MF Scoring Algorithm
 
-{SECTOR}={Total Market}
-{model}={Gemini}
+{SECTOR}={Small Cap}
+{model}={GPT}
 
-Your task is to create an algorithm to score Indian Mutual Funds from {SECTOR} sector. A higher score should predict higher returns in the next 1 year. You are given NAV history of all funds in that sector from MfDataProvider.
+Your task is to create an algorithm to score Indian Mutual Funds from {SECTOR} sector. A higher score should predict higher returns in the next 1 year. You are given NAV history of all funds in that sector from MfDataProvider for last 5 years.
+
 Do your own research, do not copy implementations of other models.
-
 
 ## Task
 - Understand how MfDataProvider can be used (given below).
-- Understand requirements to gain best returns in {SECTOR}
+- Assume SIP investment, on 1st of each month over the next 1 year.
+- Understand requirements to gain best returns in {SECTOR} . Think about the objective and opportunities for this sector.
 - Research indicators of funds and strategies which can give great returns in {SECTOR} in next 1 year
 - Research advanced metrics used by intelligent Portfolio Managers to analyze MFs
-- Research long term strategies which can be implemented with this NAV data. Thouroughly think about how each strategy or pattern can be used. Do not limit to simple ratios, make full use of 
+- Do not just see LAST 1 year SIP returns, be intelligent and find metrics which will improve NEXT 1 year SIP return. Feel free to research the internet to understand market dynamics for this sector in India for the NEXT year
+- Research long term strategies which can be implemented with this NAV data. Thouroughly think about how each strategy or pattern can be used. Do not limit to simple ratios, make full use of the daily data, and any complex relations possible to implement in python
 - Research how to identify market swings and check fund performance against it. The fund should be able to take advantage of swings to maximise total return in long term
 - See how we can create rolling metrics and backtest performance for tuning metrics with the given data
 - Finally, create a script `src/algorithms/{SECTOR}_{model}.py` which does an intelligent analysis from the given data for each {SECTOR} fund, and assigns it a score.
-- It should output a sheet `results/{SECTOR}_{model}.csv` with columns: mfId, name, rank, score, data_days, cagr_5y, other metrics. Rank should be 1 for best, CAGR should be a percentage. data_days should tell how many days data was available for that fund
+- The script should output a sheet `results/{SECTOR}_{model}.csv` with columns: mfId, name, rank, score, data_days, cagr_3y, cagr_5y, other metrics. Rank should be 1 for best, CAGR should be a percentage. data_days should tell how many days data was available for that fund
 - Run and check the results of your algorithm, and analyse if it is missing anything or making any biases or errors. Update the algorithm if needed. Make sure your approach is on your own research and not copied from other models
 
 ## Data Statistics
 
-Sector Name: Total Market
+Sector Name: Equity
 Sub Sector Names:
-- Contra Fund
-- Flexi Cap Fund
-- Focused Fund
-- Multi Cap Fund
-- Value Fund
+- Small Cap Fund
 
 ## MfDataProvider - Quick API Reference
 

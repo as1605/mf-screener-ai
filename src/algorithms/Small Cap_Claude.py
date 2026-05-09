@@ -1,51 +1,56 @@
 #!/usr/bin/env python3
 """
-Small Cap Mutual Fund Scoring Algorithm
+Small Cap Mutual Fund Scoring Algorithm — SIP-XIRR-first Self-Backtested Model
+==============================================================================
 
-A multi-factor quantitative scoring model for Indian Small Cap mutual funds.
-Designed to identify funds most likely to deliver superior risk-adjusted returns
-over the next 1 year by analysing NAV history, benchmark-relative behaviour,
-drawdown resilience, return consistency and recent momentum.
+Objective
+---------
+Predict the next 1-year MONTHLY SIP XIRR (1st-of-month buys for 12 months,
+redemption at month 12) for every Indian Small Cap mutual fund and rank
+accordingly.
 
-Methodology
------------
-1.  Compute per-fund metrics across multiple time horizons (1Y / 3Y / 5Y):
-    - CAGR, annualised volatility, Sharpe, Sortino, Calmar ratios
-    - Jensen's Alpha, Beta, Information Ratio vs Nifty SmallCap 250
-    - Up / Down capture ratios (market-swing analysis)
-    - Rolling-return consistency (% of rolling 1Y windows beating benchmark)
-    - Maximum drawdown and recovery analysis
-    - Short-term momentum (3M / 6M relative returns)
+Distinctive approach
+--------------------
+Instead of weighting features by intuition, the model SELF-BACKTESTS each
+candidate signal against realized forward 1Y SIP XIRR over the available NAV
+history, and uses the resulting Spearman correlations as adaptive weights for
+the cross-sectional composite. Features whose past correlation is non-positive
+are dropped, so only evidence-supported signals contribute. The directionality
+of every signal is learned from the data, not asserted.
 
-2.  Normalise each metric to a 0-100 percentile rank within the peer group.
-
-3.  Combine into a weighted composite score emphasising:
-    - Alpha generation & risk-adjusted returns  (40 %)
-    - Downside protection & drawdown resilience  (20 %)
-    - Consistency & benchmark beating frequency   (15 %)
-    - Momentum & recent relative performance      (10 %)
-    - Return magnitude (CAGR blend)               (15 %)
-
-4.  Apply a track-record penalty for funds with < 3 Y data (reduced confidence).
+Pipeline
+--------
+1. Load NAV history for every Small Cap fund + Nifty SmallCap 250 benchmark.
+2. Resample to month-start NAV (the SIP buy NAV; a SIP investor buys 1 unit
+   on the 1st of each month).
+3. Compute the rolling 1Y SIP XIRR series for each fund and the benchmark via
+   NPV bisection.
+4. For every historical month t with 12+ months of forward data:
+     - compute features using only data up to t (look-ahead safe)
+     - record the realized forward 1Y SIP XIRR starting at t
+5. Compute per-feature Spearman correlation with forward SIP XIRR across the
+   pooled (fund x time) panel. These correlations become adaptive weights.
+6. At "now" (the latest NAV date) z-score each feature cross-sectionally,
+   sign-correct using the learned correlation sign, weight, and convert to a
+   0-100 percentile score. Apply a track-record haircut for funds with <3Y
+   of data.
 
 Author : Claude
 Sector : Small Cap Fund
 """
 
-import os
 import argparse
-import sys
 import logging
+import sys
 import warnings
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
 
 # ---------------------------------------------------------------------------
-# Path setup – allow running from repo root or from src/algorithms/
+# Path setup
 # ---------------------------------------------------------------------------
 SCRIPT_DIR = Path(__file__).resolve().parent
 SRC_DIR = SCRIPT_DIR.parent
@@ -54,9 +59,10 @@ ROOT_DIR = SRC_DIR.parent
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from mf_data_provider import MfDataProvider
+from mf_data_provider import MfDataProvider  # noqa: E402
 
 warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -69,440 +75,851 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 SECTOR = "Small Cap"
 SUBSECTOR = "Small Cap Fund"
-BENCHMARK_INDEX = "Small Cap"           # resolved to .NISM250 by provider
-RISK_FREE_RATE = 0.065                  # annualised (Indian T-bill proxy ~6.5 %)
+BENCHMARK_INDEX = "Small Cap"          # resolves to .NISM250
+RISK_FREE_RATE = 0.065                 # ~6.5 % Indian T-bill proxy
+
+SIP_MONTHS = 12                        # task: monthly SIP for 1 year
+SIP_AMOUNT = 1.0                       # arbitrary; XIRR is amount-invariant
+
 WEEKS_PER_YEAR = 52
-MIN_WEEKS_1Y = 50
-MIN_WEEKS_3Y = 150
-MIN_WEEKS_5Y = 250
+DAYS_PER_YEAR = 365.25
+
+MIN_MONTHS_FOR_SIP = SIP_MONTHS + 1    # 12 buys + 1 redemption point
+MIN_MONTHS_FOR_BACKTEST = SIP_MONTHS + 1
+MIN_DATA_DAYS_FULL_CONFIDENCE = int(3 * DAYS_PER_YEAR)
+TRACK_RECORD_HAIRCUT = 0.85
+NOISE_FLOOR_RHO = 0.05                 # drop features with |rho| < this
 
 OUTPUT_DIR = ROOT_DIR / "results"
 OUTPUT_FILE = OUTPUT_DIR / f"{SECTOR}_Claude.csv"
 
 
 # ===================================================================
-# Helper functions
+# SIP XIRR machinery
 # ===================================================================
 
-def weekly_returns(nav_series: pd.Series) -> pd.Series:
-    """Compute simple weekly returns from a NAV series."""
+def _to_month_start_nav(nav_series: pd.Series) -> pd.Series:
+    """
+    Build a clean month-start NAV series.
+
+    Tickertape NAVs are roughly weekly. We forward-fill to daily so a SIP
+    investor can "buy" on the 1st of each month using the most recent
+    available NAV (real-world behaviour: buy at the next NAV after the SIP
+    instruction date).
+    """
+    if nav_series.empty:
+        return nav_series
+    daily = nav_series.resample("D").ffill()
+    monthly = daily.resample("MS").first().dropna()
+    return monthly
+
+
+def _xirr_bisect(
+    cashflows: List[float],
+    times_years: List[float],
+    lo: float = -0.99,
+    hi: float = 5.0,
+    tol: float = 1e-6,
+    max_iter: int = 100,
+) -> Optional[float]:
+    """
+    Solve NPV(r) = sum(cf_i / (1+r)^t_i) = 0 via bisection.
+
+    Returns None if the NPV does not change sign on [lo, hi] or if any
+    intermediate value is non-finite.
+    """
+    def npv(r: float) -> float:
+        try:
+            return float(sum(cf / ((1.0 + r) ** t) for cf, t in zip(cashflows, times_years)))
+        except (OverflowError, ZeroDivisionError):
+            return float("nan")
+
+    f_lo = npv(lo)
+    f_hi = npv(hi)
+    if not np.isfinite(f_lo) or not np.isfinite(f_hi):
+        return None
+    if f_lo * f_hi > 0:
+        return None
+
+    for _ in range(max_iter):
+        mid = 0.5 * (lo + hi)
+        f_mid = npv(mid)
+        if not np.isfinite(f_mid):
+            return None
+        if abs(f_mid) < tol or (hi - lo) < tol:
+            return mid
+        if f_lo * f_mid < 0:
+            hi = mid
+            f_hi = f_mid
+        else:
+            lo = mid
+            f_lo = f_mid
+    return 0.5 * (lo + hi)
+
+
+def sip_xirr_at(monthly_nav: pd.Series, start_idx: int, months: int = SIP_MONTHS) -> Optional[float]:
+    """
+    Annualised XIRR of a monthly SIP starting at monthly_nav[start_idx].
+
+    Cashflows: -SIP_AMOUNT at each of the next `months` month-starts, then
+    +SIP_AMOUNT * sum(1/nav_i) * nav_redeem at the redemption month.
+    """
+    end_idx = start_idx + months
+    if start_idx < 0 or end_idx >= len(monthly_nav):
+        return None
+
+    invest_navs = monthly_nav.iloc[start_idx:end_idx]
+    redeem_nav = monthly_nav.iloc[end_idx]
+    if (invest_navs <= 0).any() or redeem_nav <= 0:
+        return None
+
+    invest_dates = monthly_nav.index[start_idx:end_idx]
+    redeem_date = monthly_nav.index[end_idx]
+
+    units = SIP_AMOUNT / invest_navs.values
+    redeem_value = float(units.sum() * redeem_nav)
+
+    cashflows = [-float(SIP_AMOUNT)] * months + [redeem_value]
+    times = [(d - invest_dates[0]).days / DAYS_PER_YEAR for d in invest_dates]
+    times.append((redeem_date - invest_dates[0]).days / DAYS_PER_YEAR)
+
+    return _xirr_bisect(cashflows, times)
+
+
+def rolling_sip_xirr_series(monthly_nav: pd.Series, months: int = SIP_MONTHS) -> pd.Series:
+    """
+    Series of realized 1Y SIP XIRRs.
+
+    Indexed by SIP START date (first cashflow). Value at index t is the
+    XIRR of a SIP that started at month t and redeemed at month t+months.
+    """
+    if len(monthly_nav) < months + 1:
+        return pd.Series(dtype=float)
+
+    out = {}
+    for i in range(len(monthly_nav) - months):
+        r = sip_xirr_at(monthly_nav, i, months=months)
+        if r is not None and np.isfinite(r):
+            out[monthly_nav.index[i]] = r
+    return pd.Series(out, dtype=float).sort_index()
+
+
+# ===================================================================
+# Feature functions (all look-ahead safe — operate on data up to t only)
+# ===================================================================
+
+def _annualised_cagr(nav_series: pd.Series, years: float) -> Optional[float]:
+    """CAGR over the trailing `years` years of `nav_series` (assumes index sorted)."""
+    if nav_series.empty:
+        return None
+    end_date = nav_series.index[-1]
+    start_date = end_date - pd.Timedelta(days=int(years * DAYS_PER_YEAR))
+    window = nav_series[nav_series.index >= start_date]
+    if len(window) < 5 or window.iloc[0] <= 0:
+        return None
+    actual_years = (window.index[-1] - window.index[0]).days / DAYS_PER_YEAR
+    if actual_years < years * 0.85:  # require at least 85 % of requested span
+        return None
+    return float((window.iloc[-1] / window.iloc[0]) ** (1.0 / actual_years) - 1.0)
+
+
+def _drawdown_depth(nav_series: pd.Series, lookback_years: float = 3.0) -> Optional[float]:
+    """Current NAV relative to trailing peak (negative if in drawdown)."""
+    if nav_series.empty:
+        return None
+    end_date = nav_series.index[-1]
+    start_date = end_date - pd.Timedelta(days=int(lookback_years * DAYS_PER_YEAR))
+    window = nav_series[nav_series.index >= start_date]
+    if len(window) < 5:
+        return None
+    peak = window.max()
+    if peak <= 0:
+        return None
+    return float(window.iloc[-1] / peak - 1.0)
+
+
+def _recovery_slope(nav_series: pd.Series, days: int = 90) -> Optional[float]:
+    """
+    Slope of log(NAV) regressed on time over the last `days` days,
+    expressed as an annualised rate (positive = uptrend).
+    """
+    if nav_series.empty:
+        return None
+    end_date = nav_series.index[-1]
+    start_date = end_date - pd.Timedelta(days=days)
+    window = nav_series[nav_series.index >= start_date]
+    if len(window) < 5 or (window <= 0).any():
+        return None
+    t = np.array([(d - window.index[0]).days for d in window.index], dtype=float)
+    y = np.log(window.values)
+    if t[-1] - t[0] < days * 0.5:
+        return None
+    slope, _ = np.polyfit(t, y, 1)         # log-units per day
+    return float(slope * DAYS_PER_YEAR)    # annualised
+
+
+def _late_cycle_momentum(nav_series: pd.Series, days: int = 180) -> Optional[float]:
+    """Return over the last `days` days (raw, not annualised)."""
+    if nav_series.empty:
+        return None
+    end_date = nav_series.index[-1]
+    start_date = end_date - pd.Timedelta(days=days)
+    window = nav_series[nav_series.index >= start_date]
+    if len(window) < 5 or window.iloc[0] <= 0:
+        return None
+    return float(window.iloc[-1] / window.iloc[0] - 1.0)
+
+
+def _weekly_returns(nav_series: pd.Series) -> pd.Series:
+    """Return a clean weekly-return series (pct_change of the raw weekly NAV)."""
     return nav_series.pct_change().dropna()
 
 
-def annualised_return(nav_series: pd.Series, weeks: int) -> Optional[float]:
-    """CAGR over the last *weeks* data points (weekly data)."""
-    if len(nav_series) < weeks + 1:
-        return None
-    start = nav_series.iloc[-(weeks + 1)]
-    end = nav_series.iloc[-1]
-    if start <= 0:
-        return None
-    years = weeks / WEEKS_PER_YEAR
-    return (end / start) ** (1 / years) - 1
+def _aligned_weekly_returns(
+    fund_nav: pd.Series, bench_nav: pd.Series, lookback_years: float
+) -> Tuple[pd.Series, pd.Series]:
+    """Return weekly fund/bench returns aligned by inner-join, restricted to lookback."""
+    end_date = fund_nav.index[-1]
+    start_date = end_date - pd.Timedelta(days=int(lookback_years * DAYS_PER_YEAR))
+    f = fund_nav[fund_nav.index >= start_date]
+    b = bench_nav[bench_nav.index >= start_date]
+    f_ret = _weekly_returns(f)
+    b_ret = _weekly_returns(b)
+    aligned = pd.concat([f_ret.rename("f"), b_ret.rename("b")], axis=1, join="inner").dropna()
+    return aligned["f"], aligned["b"]
 
 
-def annualised_volatility(returns: pd.Series) -> float:
-    """Annualised standard-deviation of weekly returns."""
-    return returns.std() * np.sqrt(WEEKS_PER_YEAR)
-
-
-def downside_deviation(returns: pd.Series, mar: float = 0.0) -> float:
-    """Annualised downside deviation below *mar* (minimum acceptable return)."""
-    weekly_mar = (1 + mar) ** (1 / WEEKS_PER_YEAR) - 1
-    diff = returns - weekly_mar
-    neg = diff[diff < 0]
-    if len(neg) == 0:
-        return 0.0
-    return np.sqrt((neg ** 2).mean()) * np.sqrt(WEEKS_PER_YEAR)
-
-
-def sharpe_ratio(cagr: float, vol: float, rf: float = RISK_FREE_RATE) -> Optional[float]:
-    if vol == 0 or vol is None or cagr is None:
-        return None
-    return (cagr - rf) / vol
-
-
-def sortino_ratio(cagr: float, dd: float, rf: float = RISK_FREE_RATE) -> Optional[float]:
-    if dd == 0 or dd is None or cagr is None:
-        return None
-    return (cagr - rf) / dd
-
-
-def max_drawdown(nav_series: pd.Series) -> float:
-    """Maximum peak-to-trough drawdown (returned as a negative fraction)."""
-    peak = nav_series.cummax()
-    dd = (nav_series - peak) / peak
-    return dd.min()
-
-
-def calmar_ratio(cagr: float, mdd: float) -> Optional[float]:
-    if mdd == 0 or mdd is None or cagr is None:
-        return None
-    return cagr / abs(mdd)
-
-
-def compute_alpha_beta(fund_ret: pd.Series, bench_ret: pd.Series):
-    """Jensen's alpha and beta via OLS regression of fund ~ benchmark."""
-    aligned = pd.concat([fund_ret, bench_ret], axis=1, join="inner").dropna()
-    if len(aligned) < 20:
+def _capture_ratios(
+    fund_nav: pd.Series, bench_nav: pd.Series, lookback_years: float = 2.0
+) -> Tuple[Optional[float], Optional[float]]:
+    """Up- and down-capture ratios on weekly returns over the trailing window."""
+    f, b = _aligned_weekly_returns(fund_nav, bench_nav, lookback_years)
+    if len(f) < 20:
         return None, None
-    y = aligned.iloc[:, 0].values
-    x = aligned.iloc[:, 1].values
-    x_mean = x.mean()
-    y_mean = y.mean()
-    beta = np.sum((x - x_mean) * (y - y_mean)) / (np.sum((x - x_mean) ** 2) + 1e-12)
-    weekly_rf = (1 + RISK_FREE_RATE) ** (1 / WEEKS_PER_YEAR) - 1
-    alpha_weekly = y_mean - weekly_rf - beta * (x_mean - weekly_rf)
-    alpha_annual = alpha_weekly * WEEKS_PER_YEAR
-    return alpha_annual, beta
+
+    up = b > 0
+    down = b < 0
+
+    up_cap = None
+    if up.sum() >= 5:
+        b_up_mean = b[up].mean()
+        if abs(b_up_mean) > 1e-12:
+            up_cap = float(f[up].mean() / b_up_mean)
+
+    down_cap = None
+    if down.sum() >= 5:
+        b_down_mean = b[down].mean()
+        if abs(b_down_mean) > 1e-12:
+            down_cap = float(f[down].mean() / b_down_mean)
+
+    return up_cap, down_cap
 
 
-def information_ratio(fund_ret: pd.Series, bench_ret: pd.Series) -> Optional[float]:
-    """Annualised information ratio = annualised excess return / tracking error."""
-    aligned = pd.concat([fund_ret, bench_ret], axis=1, join="inner").dropna()
-    if len(aligned) < 20:
-        return None
-    excess = aligned.iloc[:, 0] - aligned.iloc[:, 1]
-    te = excess.std() * np.sqrt(WEEKS_PER_YEAR)
-    if te == 0:
-        return None
-    return (excess.mean() * WEEKS_PER_YEAR) / te
-
-
-def capture_ratios(fund_ret: pd.Series, bench_ret: pd.Series):
-    """Up-capture and down-capture ratios."""
-    aligned = pd.concat([fund_ret, bench_ret], axis=1, join="inner").dropna()
-    if len(aligned) < 20:
-        return None, None
-    f = aligned.iloc[:, 0]
-    b = aligned.iloc[:, 1]
-
-    up_mask = b > 0
-    down_mask = b < 0
-
-    up_capture = None
-    if up_mask.sum() > 5:
-        up_capture = f[up_mask].mean() / b[up_mask].mean()
-
-    down_capture = None
-    if down_mask.sum() > 5:
-        down_capture = f[down_mask].mean() / b[down_mask].mean()
-
-    return up_capture, down_capture
-
-
-def rolling_benchmark_beat_pct(
-    fund_nav: pd.Series, bench_nav: pd.Series, window: int = 52
+def _info_ratio(
+    fund_nav: pd.Series, bench_nav: pd.Series, lookback_years: float = 2.0
 ) -> Optional[float]:
-    """Fraction of rolling *window*-week periods where fund CAGR > benchmark."""
-    if len(fund_nav) < window + 10 or len(bench_nav) < window + 10:
+    """Annualised information ratio over the trailing window."""
+    f, b = _aligned_weekly_returns(fund_nav, bench_nav, lookback_years)
+    if len(f) < 20:
         return None
-
-    aligned = pd.concat(
-        [fund_nav.rename("fund"), bench_nav.rename("bench")], axis=1, join="inner"
-    ).dropna()
-    if len(aligned) < window + 10:
+    active = f - b
+    te = active.std()
+    if te is None or te == 0 or not np.isfinite(te):
         return None
+    return float((active.mean() * WEEKS_PER_YEAR) / (te * np.sqrt(WEEKS_PER_YEAR)))
 
-    fund_roll = aligned["fund"].pct_change(window).dropna()
-    bench_roll = aligned["bench"].pct_change(window).dropna()
 
-    common = fund_roll.index.intersection(bench_roll.index)
-    if len(common) < 10:
+def _sortino(nav_series: pd.Series, lookback_years: float = 3.0) -> Optional[float]:
+    """Annualised Sortino ratio using weekly returns over the trailing window."""
+    if nav_series.empty:
         return None
+    end_date = nav_series.index[-1]
+    start_date = end_date - pd.Timedelta(days=int(lookback_years * DAYS_PER_YEAR))
+    window = nav_series[nav_series.index >= start_date]
+    if len(window) < 30:
+        return None
+    rets = _weekly_returns(window)
+    if len(rets) < 20:
+        return None
+    weekly_rf = (1.0 + RISK_FREE_RATE) ** (1.0 / WEEKS_PER_YEAR) - 1.0
+    excess = rets - weekly_rf
+    downside = excess[excess < 0]
+    if len(downside) == 0:
+        return None
+    dd = float(np.sqrt((downside ** 2).mean()) * np.sqrt(WEEKS_PER_YEAR))
+    if dd == 0:
+        return None
+    return float((excess.mean() * WEEKS_PER_YEAR) / dd)
 
-    wins = (fund_roll.loc[common] > bench_roll.loc[common]).sum()
-    return wins / len(common)
+
+def _trend_residual(nav_series: pd.Series, lookback_years: float = 5.0) -> Optional[float]:
+    """
+    z-scored residual of current log(NAV) vs a fitted log-linear 5Y trend.
+    Negative => below trend (mean-reversion candidate); positive => above trend.
+    """
+    if nav_series.empty:
+        return None
+    end_date = nav_series.index[-1]
+    start_date = end_date - pd.Timedelta(days=int(lookback_years * DAYS_PER_YEAR))
+    window = nav_series[nav_series.index >= start_date]
+    if len(window) < 30 or (window <= 0).any():
+        return None
+    t = np.array([(d - window.index[0]).days for d in window.index], dtype=float)
+    y = np.log(window.values)
+    slope, intercept = np.polyfit(t, y, 1)
+    residuals = y - (slope * t + intercept)
+    sd = residuals.std()
+    if sd == 0 or not np.isfinite(sd):
+        return None
+    return float(residuals[-1] / sd)
+
+
+def _sip_history_features(
+    fund_sip: pd.Series, bench_sip: pd.Series
+) -> Dict[str, Optional[float]]:
+    """
+    Summary statistics of the past rolling 1Y SIP XIRR series.
+
+    `fund_sip` and `bench_sip` are indexed by SIP-start date, value = realized
+    1Y SIP XIRR. Both must already exclude the future (we only look at SIPs
+    that have already redeemed by `now`).
+    """
+    out: Dict[str, Optional[float]] = {
+        "sip_1y_median": None,
+        "sip_1y_p20": None,
+        "sip_alpha_median": None,
+        "sip_consistency": None,
+    }
+    if fund_sip.empty:
+        return out
+
+    out["sip_1y_median"] = float(fund_sip.median())
+    out["sip_1y_p20"] = float(fund_sip.quantile(0.20))
+
+    if not bench_sip.empty:
+        aligned = pd.concat(
+            [fund_sip.rename("f"), bench_sip.rename("b")], axis=1, join="inner"
+        ).dropna()
+        if len(aligned) >= 6:
+            alpha = aligned["f"] - aligned["b"]
+            out["sip_alpha_median"] = float(alpha.median())
+            out["sip_consistency"] = float((alpha > 0).mean())
+
+    return out
 
 
 # ===================================================================
-# Main analysis pipeline
+# Feature panel builder (look-ahead safe)
 # ===================================================================
 
-def analyse_fund(
-    mf_id: str,
+FEATURE_COLS = [
+    "sip_1y_median",
+    "sip_1y_p20",
+    "sip_alpha_median",
+    "sip_consistency",
+    "dd_depth",
+    "bench_dd_depth",
+    "recovery_slope",
+    "late_mom_6m",
+    "up_capture_2y",
+    "down_capture_2y",
+    "info_ratio_2y",
+    "nav_trend_residual",
+    "bench_trend_residual",
+    "sortino_3y",
+    "cagr_3y",
+    "cagr_5y",
+]
+
+# Directional priors:
+#   +1  : higher is unambiguously better (locked sign)
+#   -1  : lower is unambiguously better (locked sign)
+#    0  : genuinely two-sided -> data drives the sign
+#
+# A locked feature is only used if the self-backtested cross-sectional
+# correlation AGREES with the prior; otherwise it is dropped (we refuse to
+# bet against a financial-fundamentals signal on the basis of a noisy weak
+# negative correlation). Locked-feature weight is |rho|, same as before.
+FEATURE_PRIORS: Dict[str, int] = {
+    # SIP-quality signals: higher SIP outcome / consistency / alpha = better.
+    "sip_1y_median":        +1,
+    "sip_1y_p20":           +1,
+    "sip_alpha_median":     +1,
+    "sip_consistency":      +1,
+    # Risk-adjusted skill metrics: higher = better.
+    "info_ratio_2y":        +1,
+    "sortino_3y":           +1,
+    "up_capture_2y":        +1,
+    "recovery_slope":       +1,
+    # Down-capture: lower = better (less hurt during benchmark drawdowns).
+    "down_capture_2y":      -1,
+    # Genuinely two-sided -- could go either way and we WANT to learn:
+    "cagr_3y":               0,   # past CAGR may persist or mean-revert
+    "cagr_5y":               0,
+    "late_mom_6m":           0,   # momentum vs. mean-reversion
+    "dd_depth":              0,   # depressed price -> rebound, or weak fund
+    "bench_dd_depth":        0,   # regime gauge
+    "nav_trend_residual":    0,   # above/below trend -- mean-reversion signal
+    "bench_trend_residual":  0,
+}
+
+
+def _features_at(
     fund_nav: pd.Series,
     bench_nav: pd.Series,
-    name: str,
-    aum: float,
-) -> dict:
-    """Compute all metrics for a single fund and return a flat dict."""
-
-    n = len(fund_nav)
-    result = {"mfId": mf_id, "name": name, "aum": round(aum, 2)}
-
-    # ---------- CAGR across horizons ----------
-    result["cagr_1y"] = annualised_return(fund_nav, MIN_WEEKS_1Y)
-    result["cagr_3y"] = annualised_return(fund_nav, MIN_WEEKS_3Y)
-    result["cagr_5y"] = annualised_return(fund_nav, MIN_WEEKS_5Y)
-
-    # Use longest available CAGR as primary return metric
-    primary_cagr = result["cagr_5y"] or result["cagr_3y"] or result["cagr_1y"]
-    result["primary_cagr"] = primary_cagr
-
-    # ---------- Volatility ----------
-    rets = weekly_returns(fund_nav)
-    if len(rets) < 20:
-        logger.warning(f"{mf_id}: insufficient return data ({len(rets)} weeks)")
-        return result
-
-    vol = annualised_volatility(rets)
-    result["volatility"] = vol
-
-    # ---------- Downside deviation ----------
-    dd = downside_deviation(rets, mar=RISK_FREE_RATE)
-    result["downside_dev"] = dd
-
-    # ---------- Risk-adjusted ratios ----------
-    result["sharpe"] = sharpe_ratio(primary_cagr, vol)
-    result["sortino"] = sortino_ratio(primary_cagr, dd)
-
-    # ---------- Max drawdown ----------
-    mdd = max_drawdown(fund_nav)
-    result["max_drawdown"] = mdd
-    result["calmar"] = calmar_ratio(primary_cagr, mdd)
-
-    # ---------- Benchmark-relative metrics ----------
-    bench_rets = weekly_returns(bench_nav)
-
-    alpha, beta = compute_alpha_beta(rets, bench_rets)
-    result["alpha"] = alpha
-    result["beta"] = beta
-
-    ir = information_ratio(rets, bench_rets)
-    result["info_ratio"] = ir
-
-    up_cap, down_cap = capture_ratios(rets, bench_rets)
-    result["up_capture"] = up_cap
-    result["down_capture"] = down_cap
-
-    # ---------- Consistency ----------
-    rolling_beat = rolling_benchmark_beat_pct(fund_nav, bench_nav, window=52)
-    result["rolling_1y_beat_pct"] = rolling_beat
-
-    # Win rate (weeks with positive return)
-    result["win_rate"] = (rets > 0).mean()
-
-    # ---------- Momentum (relative to benchmark) ----------
-    # 3-month (~13 weeks) and 6-month (~26 weeks) returns
-    result["ret_3m"] = annualised_return(fund_nav, 13)
-    result["ret_6m"] = annualised_return(fund_nav, 26)
-
-    bench_ret_3m = annualised_return(bench_nav, 13)
-    bench_ret_6m = annualised_return(bench_nav, 26)
-
-    if result["ret_6m"] is not None and bench_ret_6m is not None:
-        result["momentum_6m"] = result["ret_6m"] - bench_ret_6m
-    else:
-        result["momentum_6m"] = None
-
-    if result["ret_3m"] is not None and bench_ret_3m is not None:
-        result["momentum_3m"] = result["ret_3m"] - bench_ret_3m
-    else:
-        result["momentum_3m"] = None
-
-    # ---------- Data quality flags ----------
-    result["data_weeks"] = n
-    result["data_days"] = (fund_nav.index.max() - fund_nav.index.min()).days + 1
-    result["has_5y"] = n >= MIN_WEEKS_5Y
-    result["has_3y"] = n >= MIN_WEEKS_3Y
-
-    return result
-
-
-def percentile_rank(series: pd.Series, higher_is_better: bool = True) -> pd.Series:
-    """Rank values to 0-100 percentile. NaN stays NaN."""
-    ranked = series.rank(pct=True, na_option="keep")
-    if not higher_is_better:
-        ranked = 1 - ranked  # invert so lower raw value => higher percentile
-    return ranked * 100
-
-
-def compute_composite_score(df: pd.DataFrame) -> pd.DataFrame:
+    fund_sip_completed: pd.Series,
+    bench_sip_completed: pd.Series,
+) -> Dict[str, Optional[float]]:
     """
-    Build composite score from normalised metric percentiles.
-
-    Weight allocation rationale for Small Cap prediction:
-    - Alpha & risk-adjusted returns dominate because Small Cap returns
-      are driven more by stock-picking skill than market beta.
-    - Downside protection is critical: large drawdowns in small caps can
-      take years to recover and destroy compounding.
-    - Consistency signals a repeatable strategy rather than lucky bets.
-    - Momentum captures regime persistence in small-cap rallies/corrections.
-    - Raw CAGR is included but down-weighted to avoid chasing past returns.
+    Compute every feature using only the data passed in (which the caller has
+    already truncated to <= t). The SIP series passed in must contain only
+    rolling 1Y SIPs that have ALREADY REDEEMED by t (no leakage).
     """
+    feats: Dict[str, Optional[float]] = {}
 
-    score_components = {
-        # (metric_column, higher_is_better, weight)
-        "sharpe":               (True,  0.10),
-        "sortino":              (True,  0.12),
-        "alpha":                (True,  0.15),
-        "info_ratio":           (True,  0.08),
-        "up_capture":           (True,  0.05),
-        "down_capture":         (False, 0.10),  # lower down-capture is better
-        "max_drawdown":         (False, 0.07),  # less negative is better (inverted)
-        "calmar":               (True,  0.05),
-        "rolling_1y_beat_pct":  (True,  0.08),
-        "win_rate":             (True,  0.02),
-        "momentum_6m":          (True,  0.05),
-        "momentum_3m":          (True,  0.05),
-        "cagr_5y":              (True,  0.04),
-        "cagr_3y":              (True,  0.04),
-    }
+    feats.update(_sip_history_features(fund_sip_completed, bench_sip_completed))
 
-    total_weight = sum(w for _, w in score_components.values())
-    assert abs(total_weight - 1.0) < 1e-6, f"Weights sum to {total_weight}, expected 1.0"
+    feats["dd_depth"] = _drawdown_depth(fund_nav, lookback_years=3.0)
+    feats["bench_dd_depth"] = _drawdown_depth(bench_nav, lookback_years=3.0)
+    feats["recovery_slope"] = _recovery_slope(fund_nav, days=90)
+    feats["late_mom_6m"] = _late_cycle_momentum(fund_nav, days=180)
 
-    df = df.copy()
-    df["raw_score"] = 0.0
-    applied_weight = pd.Series(0.0, index=df.index)
+    up_cap, down_cap = _capture_ratios(fund_nav, bench_nav, lookback_years=2.0)
+    feats["up_capture_2y"] = up_cap
+    feats["down_capture_2y"] = down_cap
+    feats["info_ratio_2y"] = _info_ratio(fund_nav, bench_nav, lookback_years=2.0)
 
-    for col, (higher_better, weight) in score_components.items():
-        if col not in df.columns:
+    feats["nav_trend_residual"] = _trend_residual(fund_nav, lookback_years=5.0)
+    feats["bench_trend_residual"] = _trend_residual(bench_nav, lookback_years=5.0)
+
+    feats["sortino_3y"] = _sortino(fund_nav, lookback_years=3.0)
+    feats["cagr_3y"] = _annualised_cagr(fund_nav, years=3.0)
+    feats["cagr_5y"] = _annualised_cagr(fund_nav, years=5.0)
+
+    return feats
+
+
+def build_history_panel(
+    fund_data: Dict[str, Dict[str, pd.Series]],
+    bench_nav: pd.Series,
+    bench_monthly: pd.Series,
+    bench_sip: pd.Series,
+) -> pd.DataFrame:
+    """
+    Build a (fund, sip_start_date) -> features + realized_forward_sip_xirr panel.
+
+    For each fund and each candidate SIP-start month t with 12+ months of
+    forward data, we compute features using only data up to (and including) t,
+    and pair them with the realized 1Y SIP XIRR starting at t.
+    """
+    rows: List[Dict] = []
+
+    for mf_id, payload in fund_data.items():
+        fund_nav: pd.Series = payload["nav"]
+        fund_monthly: pd.Series = payload["monthly"]
+        fund_sip: pd.Series = payload["sip"]
+
+        if len(fund_monthly) < 2 * SIP_MONTHS + 1:
+            # Need at least one historical SIP that has redeemed before any
+            # forward SIP would have started. Otherwise the panel is empty.
             continue
-        pctl = percentile_rank(df[col], higher_is_better=higher_better)
-        contribution = pctl * weight
-        # Only accumulate weight where metric is available
-        mask = pctl.notna()
-        df.loc[mask, "raw_score"] += contribution[mask]
-        applied_weight[mask] += weight
 
-    # Normalise by actual weight applied (handles missing metrics gracefully)
-    # raw_score is already on 0-100 scale (percentile * weight), so divide
-    # by applied_weight to get a clean 0-100 composite score.
-    df["score"] = np.where(
-        applied_weight > 0,
-        df["raw_score"] / applied_weight,
-        0,
-    )
+        # Iterate over candidate SIP-start dates t. We need:
+        #   - forward 1Y SIP from t available (i.e. fund_sip[t] exists)
+        #   - some completed past SIP history strictly before t
+        for t in fund_sip.index:
+            redeem_date = t + pd.DateOffset(months=SIP_MONTHS)
 
-    # ---------- Track-record penalty ----------
-    # Funds with < 3Y data get a confidence penalty (max 15 % reduction)
-    penalty = pd.Series(1.0, index=df.index)
-    short_track = ~df["has_3y"]
-    penalty[short_track] = 0.85
-    df["score"] = df["score"] * penalty
-
-    # Round
-    df["score"] = df["score"].round(2)
-
-    return df
-
-
-# ===================================================================
-# Entry point
-# ===================================================================
-
-def main(date: Optional[str] = None):
-    print("\n" + "=" * 70)
-    print(f"  SMALL CAP MUTUAL FUND SCORING ALGORITHM")
-    print(f"  Benchmark : Nifty SmallCap 250 ({BENCHMARK_INDEX})")
-    print("=" * 70)
-
-    # --- Initialise data provider ---
-    provider = MfDataProvider(date=date)
-    print(f"  Data folder : {Path(provider.data_dir).name}")
-
-    # --- Load benchmark ---
-    logger.info("Loading benchmark index data...")
-    bench_df = provider.get_index_chart(BENCHMARK_INDEX)
-    bench_df["timestamp"] = pd.to_datetime(bench_df["timestamp"], utc=True)
-    bench_df = bench_df.sort_values("timestamp").reset_index(drop=True)
-    bench_nav = bench_df.set_index("timestamp")["nav"]
-    print(f"\n  Benchmark data : {len(bench_nav)} weeks  "
-          f"({bench_nav.index.min().date()} → {bench_nav.index.max().date()})")
-
-    # --- Load fund list and filter Small Cap ---
-    df_all = provider.list_all_mf()
-    small_cap_df = df_all[df_all["subsector"] == SUBSECTOR].copy()
-    print(f"  Small Cap funds: {len(small_cap_df)}")
-
-    # --- Analyse each fund ---
-    logger.info("Analysing individual funds...")
-    results = []
-    for _, row in small_cap_df.iterrows():
-        mf_id = row["mfId"]
-        name = row["name"]
-        aum = row.get("aum", 0) or 0
-
-        try:
-            chart = provider.get_mf_chart(mf_id)
-            if len(chart) < 20:
-                logger.warning(f"Skipping {mf_id} ({name}): only {len(chart)} data points")
+            fund_nav_at_t = fund_nav[fund_nav.index <= t]
+            bench_nav_at_t = bench_nav[bench_nav.index <= t]
+            if len(fund_nav_at_t) < 30 or len(bench_nav_at_t) < 30:
                 continue
 
-            chart["timestamp"] = pd.to_datetime(chart["timestamp"], utc=True)
-            chart = chart.sort_values("timestamp").reset_index(drop=True)
-            fund_nav = chart.set_index("timestamp")["nav"]
+            # SIPs that REDEEMED on or before t (their start <= t - SIP_MONTHS)
+            cutoff_start = t - pd.DateOffset(months=SIP_MONTHS)
+            fund_sip_done = fund_sip[fund_sip.index <= cutoff_start]
+            bench_sip_done = bench_sip[bench_sip.index <= cutoff_start]
 
-            metrics = analyse_fund(mf_id, fund_nav, bench_nav, name, aum)
-            results.append(metrics)
+            feats = _features_at(
+                fund_nav_at_t, bench_nav_at_t, fund_sip_done, bench_sip_done
+            )
 
+            row = {"mfId": mf_id, "t": t, "forward_sip_xirr": float(fund_sip.loc[t])}
+            row.update(feats)
+            rows.append(row)
+
+    if not rows:
+        return pd.DataFrame(columns=["mfId", "t", "forward_sip_xirr"] + FEATURE_COLS)
+
+    panel = pd.DataFrame(rows)
+    return panel
+
+
+# ===================================================================
+# Self-backtest -> adaptive weights
+# ===================================================================
+
+def _cross_sectional_rank_corr(panel: pd.DataFrame, feature_col: str) -> Optional[float]:
+    """
+    Cross-sectional rank correlation pooled across time.
+
+    For each time slice t we rank funds by `feature_col` and by
+    `forward_sip_xirr` (both expressed as cross-sectional percentile ranks),
+    then compute Pearson correlation on the pooled (rank, rank) pairs. This
+    is exactly what the score will exploit cross-sectionally: "does ranking
+    by X at time t predict the ranking of forward outcomes at time t?"
+
+    This sidesteps time-regime pooling effects: e.g. ALL funds doing well
+    in a bull-market window otherwise inflates feature/target co-movement
+    that doesn't translate to better cross-sectional picks.
+    """
+    if feature_col not in panel.columns:
+        return None
+    sub = panel[["t", feature_col, "forward_sip_xirr"]].dropna()
+    if sub.empty:
+        return None
+    sub = sub.copy()
+    # Require at least 5 funds per time slice to rank meaningfully
+    counts = sub.groupby("t").size()
+    valid_ts = counts[counts >= 5].index
+    sub = sub[sub["t"].isin(valid_ts)]
+    if len(sub) < 50:
+        return None
+    sub["x_rank"] = sub.groupby("t")[feature_col].rank(pct=True)
+    sub["y_rank"] = sub.groupby("t")["forward_sip_xirr"].rank(pct=True)
+    if sub["x_rank"].nunique() < 2 or sub["y_rank"].nunique() < 2:
+        return None
+    rho = sub["x_rank"].corr(sub["y_rank"])
+    if rho is None or not np.isfinite(rho):
+        return None
+    return float(rho)
+
+
+def compute_feature_weights(
+    panel: pd.DataFrame,
+) -> Tuple[Dict[str, float], Dict[str, int], Dict[str, float], Dict[str, str]]:
+    """
+    Returns (weights, signs, correlations, statuses).
+
+    weights        : non-negative, sum to 1. Final composite weight per feature.
+    signs          : resolved sign (+1 or -1) used by the score, AFTER applying
+                     the prior + data agreement check.
+    correlations   : raw cross-sectional Spearman rho per feature (informational).
+    statuses       : human-readable status per feature for the diagnostic table.
+                     One of: "locked", "drop_disagree", "data", "drop_noise",
+                     "drop_no_data".
+
+    Resolution rules:
+      - Feature with prior +/- and data agrees (sign(rho) == prior, or |rho|
+        below noise so prior wins): keep, sign = prior, weight ~ |rho|.
+      - Feature with prior +/- and data DISAGREES with magnitude above the
+        noise floor: drop. We refuse to bet against a fundamentally directed
+        signal on the basis of a noisy negative correlation.
+      - Feature with prior 0 (two-sided): keep iff |rho| >= NOISE_FLOOR_RHO,
+        sign = sign(rho), weight ~ |rho|.
+    """
+    correlations: Dict[str, float] = {}
+    statuses: Dict[str, str] = {}
+    raw_weights: Dict[str, float] = {}
+    signs: Dict[str, int] = {}
+
+    for col in FEATURE_COLS:
+        rho = _cross_sectional_rank_corr(panel, col)
+        if rho is None:
+            statuses[col] = "drop_no_data"
+            continue
+        correlations[col] = rho
+        prior = FEATURE_PRIORS.get(col, 0)
+
+        if prior != 0:
+            # Locked-direction feature.
+            if (rho * prior) >= 0 or abs(rho) < NOISE_FLOOR_RHO:
+                # Data agrees (or is too noisy to disagree) -> keep, sign = prior.
+                # Weight is |rho| but with a tiny floor so a strong-prior feature
+                # with rho ~= 0 still contributes a sliver (otherwise the prior
+                # is wasted whenever the panel produces near-zero correlations).
+                w = max(abs(rho), NOISE_FLOOR_RHO)
+                raw_weights[col] = w
+                signs[col] = prior
+                statuses[col] = "locked"
+            else:
+                # Data meaningfully contradicts the prior -> drop the feature.
+                statuses[col] = "drop_disagree"
+        else:
+            # Data-driven feature.
+            if abs(rho) >= NOISE_FLOOR_RHO:
+                raw_weights[col] = abs(rho)
+                signs[col] = 1 if rho >= 0 else -1
+                statuses[col] = "data"
+            else:
+                statuses[col] = "drop_noise"
+
+    total = sum(raw_weights.values())
+    if total == 0:
+        # Degenerate: nothing usable. Fall back to equal weight on the most
+        # robust prior-positive SIP-quality features so we still produce a
+        # sensible ranking.
+        fallback = ["sip_alpha_median", "sip_1y_median",
+                    "info_ratio_2y", "sortino_3y", "sip_consistency"]
+        present = [c for c in fallback if FEATURE_PRIORS.get(c, 0) == 1]
+        if not present:
+            return {}, {}, correlations, statuses
+        w = 1.0 / len(present)
+        weights = {c: w for c in present}
+        signs = {c: 1 for c in present}
+        for c in present:
+            statuses[c] = "fallback"
+        return weights, signs, correlations, statuses
+
+    weights = {c: w / total for c, w in raw_weights.items()}
+    return weights, signs, correlations, statuses
+
+
+# ===================================================================
+# Cross-sectional scoring at "now"
+# ===================================================================
+
+def _zscore(s: pd.Series) -> pd.Series:
+    """Cross-sectional z-score; NaN preserved."""
+    mu = s.mean()
+    sd = s.std()
+    if sd is None or sd == 0 or not np.isfinite(sd):
+        return pd.Series(np.where(s.notna(), 0.0, np.nan), index=s.index)
+    return (s - mu) / sd
+
+
+def composite_score(
+    features_now: pd.DataFrame,
+    weights: Dict[str, float],
+    signs: Dict[str, int],
+) -> pd.Series:
+    """
+    Compute the composite raw score per fund.
+
+    For each weighted feature:
+      z = cross-sectional z-score
+      contribution = w * sign * z, where `sign` is the resolved direction
+      (prior or data-driven) from compute_feature_weights().
+    Funds with NaN on a feature have its weight redistributed (so absent data
+    does not zero them out).
+    """
+    contribs = pd.DataFrame(index=features_now.index, dtype=float)
+    weight_panel = pd.DataFrame(index=features_now.index, dtype=float)
+
+    for col, w in weights.items():
+        if col not in features_now.columns:
+            continue
+        z = _zscore(features_now[col].astype(float))
+        sign = float(signs.get(col, 1))
+        contribs[col] = w * sign * z
+        weight_panel[col] = np.where(z.notna(), w, np.nan)
+
+    if contribs.empty:
+        return pd.Series(0.0, index=features_now.index)
+
+    raw_sum = contribs.sum(axis=1, skipna=True)
+    used_weight = weight_panel.sum(axis=1, skipna=True)
+    # Renormalise so a fund missing a feature isn't penalised (other than the
+    # track-record haircut applied later).
+    raw = np.where(used_weight > 0, raw_sum / used_weight, 0.0)
+    return pd.Series(raw, index=features_now.index)
+
+
+# ===================================================================
+# Main pipeline
+# ===================================================================
+
+def _load_nav(provider: MfDataProvider, mf_id: str) -> Optional[pd.Series]:
+    chart = provider.get_mf_chart(mf_id)
+    if chart is None or len(chart) < 30:
+        return None
+    chart = chart.copy()
+    chart["timestamp"] = pd.to_datetime(chart["timestamp"], utc=True)
+    chart = chart.sort_values("timestamp").drop_duplicates("timestamp")
+    nav = chart.set_index("timestamp")["nav"].astype(float)
+    nav = nav[nav > 0]
+    if len(nav) < 30:
+        return None
+    return nav
+
+
+def main(date: Optional[str] = None) -> None:
+    print("\n" + "=" * 72)
+    print("  SMALL CAP MUTUAL FUND SCORING - CLAUDE MODEL")
+    print("  Objective: predict next-1Y monthly-SIP XIRR")
+    print(f"  Benchmark: Nifty SmallCap 250 ({BENCHMARK_INDEX})")
+    print("=" * 72)
+
+    provider = MfDataProvider(date=date)
+
+    # ---- Benchmark ----
+    bench_df = provider.get_index_chart(BENCHMARK_INDEX)
+    bench_df["timestamp"] = pd.to_datetime(bench_df["timestamp"], utc=True)
+    bench_df = bench_df.sort_values("timestamp").drop_duplicates("timestamp")
+    bench_nav = bench_df.set_index("timestamp")["nav"].astype(float)
+    bench_nav = bench_nav[bench_nav > 0]
+    bench_monthly = _to_month_start_nav(bench_nav)
+    bench_sip = rolling_sip_xirr_series(bench_monthly)
+    print(
+        f"  Benchmark: {len(bench_nav)} weekly NAVs "
+        f"({bench_nav.index.min().date()} -> {bench_nav.index.max().date()})  "
+        f"| {len(bench_sip)} historical 1Y SIP outcomes"
+    )
+
+    # ---- Fund universe ----
+    df_all = provider.list_all_mf()
+    funds_df = df_all[df_all["subsector"] == SUBSECTOR].copy()
+    print(f"  Small Cap funds in universe: {len(funds_df)}")
+
+    # ---- Load all funds + precompute monthly + SIP series ----
+    fund_data: Dict[str, Dict[str, pd.Series]] = {}
+    fund_meta: Dict[str, Dict[str, object]] = {}
+
+    for _, row in funds_df.iterrows():
+        mf_id = row["mfId"]
+        name = row["name"]
+        aum = float(row.get("aum", 0) or 0)
+
+        try:
+            nav = _load_nav(provider, mf_id)
+            if nav is None:
+                logger.warning(f"Skipping {mf_id} ({name}): insufficient NAV data")
+                continue
+            monthly = _to_month_start_nav(nav)
+            if len(monthly) < MIN_MONTHS_FOR_SIP:
+                logger.warning(
+                    f"Skipping {mf_id} ({name}): only {len(monthly)} monthly points"
+                )
+                continue
+            sip = rolling_sip_xirr_series(monthly)
+
+            fund_data[mf_id] = {"nav": nav, "monthly": monthly, "sip": sip}
+            fund_meta[mf_id] = {
+                "name": name,
+                "aum": round(aum, 2),
+                "data_days": int((nav.index.max() - nav.index.min()).days + 1),
+                "n_sip_windows": len(sip),
+            }
         except Exception as e:
-            logger.error(f"Error analysing {mf_id} ({name}): {e}")
+            logger.error(f"Error loading {mf_id} ({name}): {e}")
             continue
 
-    if not results:
-        logger.error("No funds analysed successfully. Exiting.")
+    print(f"  Funds with usable NAV history: {len(fund_data)}")
+    if not fund_data:
+        logger.error("No usable funds. Exiting.")
         sys.exit(1)
 
-    df_results = pd.DataFrame(results)
-    print(f"  Funds analysed : {len(df_results)}")
+    # ---- Build (look-ahead safe) historical panel for self-backtest ----
+    print("\n  Building historical (fund x time) feature panel...")
+    panel = build_history_panel(fund_data, bench_nav, bench_monthly, bench_sip)
+    print(f"  Panel rows: {len(panel)} across {panel['mfId'].nunique() if not panel.empty else 0} funds")
 
-    # --- Compute composite score ---
-    logger.info("Computing composite scores...")
-    df_scored = compute_composite_score(df_results)
+    # ---- Self-backtest: learn feature weights ----
+    weights, signs, correlations, statuses = compute_feature_weights(panel)
 
-    # --- Rank ---
-    df_scored["rank"] = df_scored["score"].rank(ascending=False, method="min").astype(int)
-    df_scored = df_scored.sort_values("rank")
+    print("\n  Self-backtested feature signal vs forward 1Y SIP XIRR")
+    print("  " + "-" * 76)
+    print(f"  {'feature':<24}{'prior':>7}{'rho':>10}{'sign':>7}{'weight':>14}{'status':>16}")
+    print("  " + "-" * 76)
+    prior_label = {1: "+", -1: "-", 0: "data"}
+    for col in FEATURE_COLS:
+        prior = FEATURE_PRIORS.get(col, 0)
+        rho = correlations.get(col)
+        w = weights.get(col, 0.0)
+        sgn = signs.get(col)
+        status = statuses.get(col, "")
+        rho_str = f"{rho:+.3f}" if rho is not None else "  n/a"
+        sgn_str = ("+" if sgn == 1 else "-") if sgn is not None else " "
+        print(
+            f"  {col:<24}{prior_label[prior]:>7}{rho_str:>10}{sgn_str:>7}"
+            f"{w*100:>12.2f}%{status:>16}"
+        )
+    print("  " + "-" * 76)
 
-    # --- Format output columns ---
-    fmt = lambda v, mult=100: f"{v * mult:.2f}" if pd.notna(v) and v is not None else ""
-    fmt_ratio = lambda v: f"{v:.3f}" if pd.notna(v) and v is not None else ""
+    # ---- Compute features at "now" for every fund ----
+    print("\n  Computing features at latest date for ranking...")
+    now_rows: List[Dict] = []
+    for mf_id, payload in fund_data.items():
+        fund_nav = payload["nav"]
+        fund_monthly = payload["monthly"]
+        fund_sip = payload["sip"]
+
+        # All historical SIPs for this fund have already redeemed by "now"
+        # (they were computed from past data), so use the entire series.
+        feats = _features_at(fund_nav, bench_nav, fund_sip, bench_sip)
+        row = {"mfId": mf_id}
+        row.update(feats)
+        now_rows.append(row)
+
+    features_now = pd.DataFrame(now_rows).set_index("mfId")
+    raw_score = composite_score(features_now, weights, signs)
+
+    # ---- Convert raw -> 0-100 percentile -> apply track-record haircut ----
+    pctl = raw_score.rank(pct=True, na_option="keep") * 100.0
+    score = pctl.fillna(0.0)
+
+    haircut = pd.Series(1.0, index=score.index)
+    for mf_id in score.index:
+        days = fund_meta[mf_id]["data_days"]
+        if days < MIN_DATA_DAYS_FULL_CONFIDENCE:
+            haircut[mf_id] = TRACK_RECORD_HAIRCUT
+    score = (score * haircut).round(2)
+
+    # ---- Assemble output ----
+    out = features_now.copy()
+    out["score"] = score
+    out["raw_score"] = raw_score
+    out["name"] = [fund_meta[m]["name"] for m in out.index]
+    out["aum"] = [fund_meta[m]["aum"] for m in out.index]
+    out["data_days"] = [fund_meta[m]["data_days"] for m in out.index]
+    out["n_sip_windows"] = [fund_meta[m]["n_sip_windows"] for m in out.index]
+
+    out = out.reset_index()
+    out["rank"] = out["score"].rank(ascending=False, method="min").astype(int)
+    out = out.sort_values(["rank", "score"], ascending=[True, False]).reset_index(drop=True)
+
+    # ---- Format columns ----
+    pct_fmt = lambda v: f"{v * 100:.2f}" if pd.notna(v) else ""
+    ratio_fmt = lambda v: f"{v:.3f}" if pd.notna(v) else ""
 
     output = pd.DataFrame()
-    output["mfId"] = df_scored["mfId"]
-    output["name"] = df_scored["name"]
-    output["rank"] = df_scored["rank"]
-    output["score"] = df_scored["score"]
-    output["data_days"] = df_scored["data_days"]
-    output["cagr_1y"] = df_scored["cagr_1y"].apply(fmt)
-    output["cagr_3y"] = df_scored["cagr_3y"].apply(fmt)
-    output["cagr_5y"] = df_scored["cagr_5y"].apply(fmt)
-    output["volatility"] = df_scored["volatility"].apply(fmt)
-    output["sharpe"] = df_scored["sharpe"].apply(fmt_ratio)
-    output["sortino"] = df_scored["sortino"].apply(fmt_ratio)
-    output["alpha"] = df_scored["alpha"].apply(fmt)
-    output["beta"] = df_scored["beta"].apply(fmt_ratio)
-    output["info_ratio"] = df_scored["info_ratio"].apply(fmt_ratio)
-    output["max_drawdown"] = df_scored["max_drawdown"].apply(fmt)
-    output["calmar"] = df_scored["calmar"].apply(fmt_ratio)
-    output["up_capture"] = df_scored["up_capture"].apply(fmt_ratio)
-    output["down_capture"] = df_scored["down_capture"].apply(fmt_ratio)
-    output["rolling_1y_beat_pct"] = df_scored["rolling_1y_beat_pct"].apply(fmt)
-    output["momentum_6m"] = df_scored["momentum_6m"].apply(fmt)
-    output["momentum_3m"] = df_scored["momentum_3m"].apply(fmt)
-    output["aum"] = df_scored["aum"]
-    output["data_weeks"] = df_scored["data_weeks"]
+    output["mfId"] = out["mfId"]
+    output["name"] = out["name"]
+    output["rank"] = out["rank"]
+    output["score"] = out["score"]
+    output["data_days"] = out["data_days"]
+    output["cagr_3y"] = out["cagr_3y"].apply(pct_fmt)
+    output["cagr_5y"] = out["cagr_5y"].apply(pct_fmt)
+    output["sip_1y_median"] = out["sip_1y_median"].apply(pct_fmt)
+    output["sip_1y_p20"] = out["sip_1y_p20"].apply(pct_fmt)
+    output["sip_alpha_median"] = out["sip_alpha_median"].apply(pct_fmt)
+    output["sip_consistency"] = out["sip_consistency"].apply(ratio_fmt)
+    output["dd_depth_now"] = out["dd_depth"].apply(pct_fmt)
+    output["recovery_slope"] = out["recovery_slope"].apply(pct_fmt)
+    output["late_mom_6m"] = out["late_mom_6m"].apply(pct_fmt)
+    output["info_ratio_2y"] = out["info_ratio_2y"].apply(ratio_fmt)
+    output["up_capture_2y"] = out["up_capture_2y"].apply(ratio_fmt)
+    output["down_capture_2y"] = out["down_capture_2y"].apply(ratio_fmt)
+    output["nav_trend_residual"] = out["nav_trend_residual"].apply(ratio_fmt)
+    output["sortino_3y"] = out["sortino_3y"].apply(ratio_fmt)
+    output["aum"] = out["aum"]
+    output["n_sip_windows"] = out["n_sip_windows"]
 
-    # --- Save ---
+    # ---- Save ----
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output.to_csv(OUTPUT_FILE, index=False)
     logger.info(f"Results saved to {OUTPUT_FILE}")
 
-    # --- Print top 15 ---
-    print("\n" + "=" * 70)
-    print("  TOP 15 SMALL CAP FUNDS BY COMPOSITE SCORE")
-    print("=" * 70 + "\n")
+    # ---- Top 15 ----
+    print("\n" + "=" * 72)
+    print("  TOP 15 SMALL CAP FUNDS - CLAUDE MODEL")
+    print("=" * 72 + "\n")
+    cols = ["rank", "name", "score", "cagr_3y", "sip_1y_median",
+            "sip_alpha_median", "dd_depth_now", "aum"]
+    print(output.head(15)[cols].to_string(index=False))
 
-    display_cols = ["rank", "name", "score", "cagr_5y", "sharpe", "alpha",
-                    "max_drawdown", "rolling_1y_beat_pct", "aum"]
-    top15 = output.head(15)[display_cols]
-    print(top15.to_string(index=False))
-
-    print(f"\n  Full results ({len(output)} funds) → {OUTPUT_FILE}")
-    print("=" * 70 + "\n")
+    print(f"\n  Full results ({len(output)} funds) -> {OUTPUT_FILE}")
+    print("=" * 72 + "\n")
 
 
 if __name__ == "__main__":
