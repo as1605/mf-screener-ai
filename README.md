@@ -16,7 +16,7 @@ A vibecoding project to analyze mutual funds using AI-generated strategies. This
 ## Workflow
 
 1.  **Data Fetching**: The `MfDataProvider` fetches mutual fund metadata and historical NAV data from TickerTape.
-2.  **Algorithm Scoring**: Different AI models (Claude, Gemini, GPT) have generated Python scripts to analyze the data and score funds based on various metrics like CAGR, Sharpe Ratio, Alpha, Momentum, etc.
+2.  **Algorithm Scoring**: Different AI models (Claude, Gemini, GPT, and Codex where used) have generated Python scripts to analyze the data and score funds based on various metrics like CAGR, Sharpe Ratio, Alpha, Momentum, etc.
 3.  **Compilation**: The scores from all models are compiled and normalized to create a final composite ranking.
 4.  **Publishing**: The results are published to a Google Sheet for easy viewing and filtering.
 

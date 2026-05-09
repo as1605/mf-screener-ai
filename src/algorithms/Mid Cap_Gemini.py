@@ -4,286 +4,367 @@ import os
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
+import warnings
+from scipy.stats import spearmanr
+from scipy.optimize import brentq
 
 # Add project root to path to allow imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from src.mf_data_provider import MfDataProvider
 
-def calculate_metrics(fund_df, benchmark_df, risk_free_rate=0.065):
-    """
-    Calculate various performance metrics for a fund against a benchmark.
-    """
-    # Merge fund and benchmark data on timestamp
-    merged = pd.merge(fund_df, benchmark_df, on='timestamp', how='inner', suffixes=('_fund', '_bench'))
+warnings.filterwarnings("ignore")
+
+# Define Constants
+RISK_FREE_RATE = 0.065
+SECTOR = "Mid Cap"
+MODEL = "Gemini"
+
+def _xirr(cashflows):
+    if len(cashflows) < 2:
+        return None
+    t0 = cashflows[0][0]
+    days = np.array([(cf[0] - t0).days for cf in cashflows], dtype=float)
+    amts = np.array([cf[1] for cf in cashflows], dtype=float)
+    if np.all(amts >= 0) or np.all(amts <= 0):
+        return None
+    def npv(rate):
+        return float(np.sum(amts / (1.0 + rate) ** (days / 365.0)))
+    try:
+        return float(brentq(npv, -0.99, 10.0, xtol=1e-6, maxiter=200))
+    except:
+        return None
+
+def calc_sip_xirr(nav_series, start_date, end_date, monthly_amount=10000):
+    nav_subset = nav_series.loc[start_date:end_date]
+    if nav_subset.empty:
+        return None
     
-    if len(merged) < 250:  # Require at least ~1 year of overlapping data
-        return None
-
-    # Standardize analysis window to last 5 years (fair comparison)
-    # This prevents funds that started post-crash (e.g. post-2020) from having an unfair advantage
-    # over funds that carry the baggage of historical crashes in their full-history metrics.
-    max_date = merged['timestamp'].max()
-    start_date = max_date - timedelta(days=5*365)
-    merged = merged[merged['timestamp'] > start_date]
-
-    # Calculate daily returns
-    merged['return_fund'] = merged['nav_fund'].pct_change()
-    merged['return_bench'] = merged['nav_bench'].pct_change()
-    merged = merged.dropna()
-
-    if len(merged) < 250:
-        return None
-
-    # 1. Rolling Returns (3-year rolling CAGR)
-    # We'll take the mean of rolling 3Y CAGRs to measure consistency
-    window_days = 3 * 365
-    if len(merged) > window_days:
-        # Calculate rolling 3Y return
-        # (Price_t / Price_t-n)^(1/3) - 1
-        # We can approximate using rolling window on daily returns? No, better to use NAVs.
-        # But we need to align dates. Let's stick to a simpler rolling return metric:
-        # Average 1-year rolling return
-        rolling_window = 252 # Trading days
-        merged['rolling_1y_fund'] = merged['nav_fund'].pct_change(periods=rolling_window)
-        merged['rolling_1y_bench'] = merged['nav_bench'].pct_change(periods=rolling_window)
+    buys = pd.date_range(start=start_date, end=end_date, freq='MS')
+    units = 0.0
+    cashflows = []
+    
+    for buy_date in buys:
+        # Find next available NAV
+        available = nav_subset.loc[buy_date:]
+        if available.empty:
+            continue
+        actual_date = available.index[0]
+        nav_val = available.iloc[0]
+        units += monthly_amount / nav_val
+        cashflows.append((actual_date, -monthly_amount))
         
-        # Win rate: % of time fund beat benchmark on 1y rolling basis
-        rolling_data = merged.dropna(subset=['rolling_1y_fund', 'rolling_1y_bench'])
-        if len(rolling_data) > 0:
-            win_rate = np.mean(rolling_data['rolling_1y_fund'] > rolling_data['rolling_1y_bench'])
-            avg_rolling_return = rolling_data['rolling_1y_fund'].mean()
-        else:
-            win_rate = 0.5
-            avg_rolling_return = merged['return_fund'].mean() * 252
-    else:
-        win_rate = 0.5 # Neutral if not enough data
-        avg_rolling_return = merged['return_fund'].mean() * 252
-
-    # 2. Max Drawdown
-    cumulative_returns = (1 + merged['return_fund']).cumprod()
-    peak = cumulative_returns.cummax()
-    drawdown = (cumulative_returns - peak) / peak
-    max_drawdown = drawdown.min()
-
-    # 3. Sharpe Ratio
-    excess_returns = merged['return_fund'] - (risk_free_rate / 252)
-    sharpe_ratio = np.sqrt(252) * excess_returns.mean() / excess_returns.std()
-
-    # 4. Sortino Ratio
-    downside_returns = excess_returns[excess_returns < 0]
-    if len(downside_returns) > 0:
-        downside_std = downside_returns.std()
-        sortino_ratio = np.sqrt(252) * excess_returns.mean() / downside_std
-    else:
-        sortino_ratio = sharpe_ratio # Fallback
-
-    # 5. Beta and Alpha
-    covariance = np.cov(merged['return_fund'], merged['return_bench'])[0][1]
-    benchmark_variance = merged['return_bench'].var()
-    beta = covariance / benchmark_variance
+    if len(cashflows) < 6:
+        return None
+        
+    final_date = nav_subset.index[-1]
+    final_nav = nav_subset.iloc[-1]
+    final_value = units * final_nav
+    cashflows.append((final_date, final_value))
     
-    # Alpha (Jensen's Alpha) = Rp - [Rf + Beta * (Rm - Rf)]
-    # Annualized
-    rp = merged['return_fund'].mean() * 252
-    rm = merged['return_bench'].mean() * 252
-    alpha = rp - (risk_free_rate + beta * (rm - risk_free_rate))
+    return _xirr(cashflows)
 
-    # 6. Downside Capture Ratio
-    # Down Market: Benchmark return < 0
-    down_market = merged[merged['return_bench'] < 0]
-    if len(down_market) > 0:
-        down_capture = (down_market['return_fund'].mean() / down_market['return_bench'].mean())
-    else:
-        down_capture = 1.0
-
-    # 3Y and 5Y CAGR (for reporting)
-    start_nav = fund_df['nav'].iloc[0]
-    end_nav = fund_df['nav'].iloc[-1]
-    days = (fund_df['timestamp'].iloc[-1] - fund_df['timestamp'].iloc[0]).days
+def get_swing_elasticity(fund_nav, bench_nav):
+    if len(bench_nav) < 250:
+        return 0.0, 0.0
     
-    cagr_3y = 0
-    if days > 365 * 3:
-        three_y_ago = fund_df['timestamp'].iloc[-1] - timedelta(days=365*3)
-        idx = fund_df['timestamp'].searchsorted(three_y_ago)
-        if idx < len(fund_df):
-            nav_3y = fund_df['nav'].iloc[idx]
-            cagr_3y = ((end_nav / nav_3y) ** (1/3) - 1) * 100
-    elif days > 0:
-        cagr_3y = ((end_nav / start_nav) ** (365/days) - 1) * 100
+    # Calculate weekly returns to smooth out daily noise and improve alignment
+    fund_weekly = fund_nav.resample('W').last().dropna()
+    bench_weekly = bench_nav.resample('W').last().dropna()
+    
+    fund_ret = fund_weekly.pct_change().dropna()
+    bench_ret = bench_weekly.reindex(fund_weekly.index).ffill().pct_change().dropna()
+    
+    aligned = pd.concat([fund_ret, bench_ret], axis=1).dropna()
+    aligned.columns = ['fund', 'bench']
+    
+    if len(aligned) < 50: # Weekly data, 50 weeks is ~1 year
+        return 0.0, 0.0
+        
+    down_market = aligned[aligned['bench'] < 0]
+    down_capture = down_market['fund'].mean() / down_market['bench'].mean() if len(down_market) > 0 and down_market['bench'].mean() < 0 else 1.0
+    
+    up_market = aligned[aligned['bench'] > 0]
+    up_capture = up_market['fund'].mean() / up_market['bench'].mean() if len(up_market) > 0 and up_market['bench'].mean() > 0 else 1.0
+    
+    swing_elasticity = up_capture - down_capture
+    # print(f"DEBUG: len(aligned) = {len(aligned)}")
+    return float(swing_elasticity), float(down_capture)
 
-    cagr_5y = 0
-    if days > 365 * 5:
-        # Get exact 5y ago date
-        five_y_ago = fund_df['timestamp'].iloc[-1] - timedelta(days=365*5)
-        # Find closest date
-        idx = fund_df['timestamp'].searchsorted(five_y_ago)
-        if idx < len(fund_df):
-             nav_5y = fund_df['nav'].iloc[idx]
-             cagr_5y = ((end_nav / nav_5y) ** (1/5) - 1) * 100
-    elif days > 0:
-        cagr_5y = ((end_nav / start_nav) ** (365/days) - 1) * 100
+def calc_momentum(fund_nav, bench_nav, days):
+    cutoff = fund_nav.index[-1] - timedelta(days=days)
+    f_subset = fund_nav.loc[cutoff:]
+    
+    b_subset = bench_nav.reindex(f_subset.index).ffill()
+    
+    if len(f_subset) < 20 or len(b_subset) < 20:
+        return 0.0
+        
+    f_ret = f_subset.pct_change().dropna()
+    b_ret = b_subset.pct_change().dropna()
+    
+    aligned = pd.concat([f_ret, b_ret], axis=1).dropna()
+    if aligned.empty:
+        return 0.0
+        
+    excess = aligned.iloc[:, 0] - aligned.iloc[:, 1]
+    std = excess.std()
+    if std == 0:
+        return 0.0
+    return (excess.mean() / std) * np.sqrt(252)
 
+def calculate_fund_metrics(fund_nav, bench_nav, eval_date):
+    fund_nav = fund_nav.loc[:eval_date]
+    bench_nav = bench_nav.loc[:eval_date]
+    
+    if len(fund_nav) < 250:
+        return None
+        
+    # Consistency (Rolling 1Y SIP Win Rate over last 2 years)
+    start_eval = eval_date - timedelta(days=2*365)
+    rolling_dates = pd.date_range(start=start_eval, end=eval_date-timedelta(days=365), freq='ME')
+    
+    wins = 0
+    total = 0
+    for d in rolling_dates:
+        fx = calc_sip_xirr(fund_nav, d, d + timedelta(days=365))
+        bx = calc_sip_xirr(bench_nav, d, d + timedelta(days=365))
+        if fx is not None and bx is not None:
+            total += 1
+            if fx > bx:
+                wins += 1
+                
+    win_rate = (wins / total) if total > 0 else 0.5
+    
+    # Swing & Quality
+    swing_elasticity, down_capture = get_swing_elasticity(fund_nav.loc[eval_date-timedelta(days=3*365):], 
+                                                          bench_nav.loc[eval_date-timedelta(days=3*365):])
+                                                          
+    # Momentum (3M, 6M)
+    ir_3m = calc_momentum(fund_nav, bench_nav, 90)
+    ir_6m = calc_momentum(fund_nav, bench_nav, 180)
+    
+    # Sortino Ratio
+    f_weekly = fund_nav.resample('W').last().dropna()
+    f_ret = f_weekly.pct_change().dropna()
+    if not f_ret.empty:
+        excess = f_ret - (RISK_FREE_RATE/52)
+        down_std = excess[excess < 0].std()
+        sortino = (excess.mean() / down_std) * np.sqrt(52) if down_std > 0 else 0
+    else:
+        sortino = 0.0
+        
     return {
         'win_rate': win_rate,
-        'avg_rolling_return': avg_rolling_return,
-        'max_drawdown': max_drawdown,
-        'sharpe_ratio': sharpe_ratio,
-        'sortino_ratio': sortino_ratio,
-        'alpha': alpha,
-        'beta': beta,
+        'swing_elasticity': swing_elasticity,
         'down_capture': down_capture,
-        'cagr_3y': cagr_3y,
-        'cagr_5y': cagr_5y,
-        'data_days': days
+        'ir_3m': ir_3m,
+        'ir_6m': ir_6m,
+        'sortino': sortino
     }
 
-def normalize_series(series, lower_is_better=False):
-    """Normalize a pandas series to 0-100 scale."""
-    series = series.replace([np.inf, -np.inf], np.nan)
-    if series.isnull().all():
-        return series
-    
-    min_val = series.min()
-    max_val = series.max()
-    
-    if max_val == min_val:
-        return pd.Series(50, index=series.index)
-        
-    if lower_is_better:
-        return 100 * (max_val - series) / (max_val - min_val)
-    else:
-        return 100 * (series - min_val) / (max_val - min_val)
-
 def main(date=None):
-    SECTOR = "Mid Cap"
-    MODEL = "Gemini"
-    
-    print(f"Starting analysis for {SECTOR} using {MODEL} strategy...")
-    if date:
-        print(f"Data snapshot: {date}")
+    print("=" * 80)
+    print("MID CAP GEMINI ALGO - Dynamic Self-Tuning")
+    print("=" * 80)
     
     provider = MfDataProvider(date=date)
-    
-    # Get all funds in sector
-    sectors = provider.list_mf_by_sector()
-    # Find the correct key for Mid Cap. It might be under Equity -> Mid Cap Fund
-    # Let's search for it
-    target_funds = []
-    
-    # "Mid Cap" in the task likely refers to "Equity" -> "Mid Cap Fund"
-    if 'Equity' in sectors and 'Mid Cap Fund' in sectors['Equity']:
-        target_funds = sectors['Equity']['Mid Cap Fund']
-    else:
-        print("Could not find 'Mid Cap Fund' in Equity sector.")
+    bench_df = provider.get_index_chart('.NIMI150')
+    if bench_df.empty:
+        print("Failed to get benchmark data.")
         return
-
-    print(f"Found {len(target_funds)} funds in {SECTOR}...")
-
-    # Get Benchmark Data
-    indices = provider.list_indices()
-    # Task says Mid Cap index is .NIMI150
-    benchmark_id = indices.get('Mid Cap', '.NIMI150')
-    print(f"Fetching benchmark data for {benchmark_id}...")
-    benchmark_df = provider.get_index_chart(benchmark_id)
-    benchmark_df['timestamp'] = pd.to_datetime(benchmark_df['timestamp'])
-    benchmark_df['nav'] = pd.to_numeric(benchmark_df['nav'], errors='coerce')
+        
+    bench_df['timestamp'] = pd.to_datetime(bench_df['timestamp']).dt.normalize()
+    bench_nav = bench_df.set_index('timestamp')['nav'].sort_index()
+    bench_nav = bench_nav[~bench_nav.index.duplicated(keep='last')]
     
+    df_all = provider.list_all_mf()
+    mid_caps = df_all[df_all['subsector'] == 'Mid Cap Fund'].copy()
+    
+    funds_data = {}
+    for _, row in mid_caps.iterrows():
+        mfId = row['mfId']
+        chart = provider.get_mf_chart(mfId)
+        if not chart.empty:
+            chart['timestamp'] = pd.to_datetime(chart['timestamp']).dt.normalize()
+            nav = chart.set_index('timestamp')['nav'].sort_index()
+            nav = nav[~nav.index.duplicated(keep='last')]
+            funds_data[mfId] = {
+                'name': row['name'],
+                'aum': row['aum'],
+                'nav': nav
+            }
+            
+    print(f"Loaded {len(funds_data)} mid cap funds.")
+    
+    current_date = bench_nav.index[-1]
+    
+    # Dynamic Tuning Engine
+    # We will evaluate at t-1Y and t-2Y to predict t-0 and t-1Y respectively
+    eval_points = [current_date - timedelta(days=365), current_date - timedelta(days=2*365)]
+    
+    historical_metrics = {pt: {} for pt in eval_points}
+    forward_returns = {pt: {} for pt in eval_points}
+    
+    print("Running dynamic tuning engine...")
+    for pt in eval_points:
+        for mfId, data in funds_data.items():
+            metrics = calculate_fund_metrics(data['nav'], bench_nav, pt)
+            if metrics is not None:
+                historical_metrics[pt][mfId] = metrics
+                
+                # Calculate forward 1Y SIP return
+                fwd_xirr = calc_sip_xirr(data['nav'], pt, pt + timedelta(days=365))
+                if fwd_xirr is not None:
+                    forward_returns[pt][mfId] = fwd_xirr
+                    
+    # Calculate ICs
+    features = ['win_rate', 'swing_elasticity', 'down_capture', 'ir_3m', 'ir_6m', 'sortino']
+    feature_ics = {f: [] for f in features}
+    
+    for pt in eval_points:
+        h_mets = historical_metrics[pt]
+        f_rets = forward_returns[pt]
+        
+        common_funds = list(set(h_mets.keys()).intersection(set(f_rets.keys())))
+        if len(common_funds) < 10:
+            continue
+            
+        y = [f_rets[f] for f in common_funds]
+        for feat in features:
+            x = [h_mets[f][feat] for f in common_funds]
+            if np.std(x) > 1e-6 and np.std(y) > 1e-6:
+                ic, _ = spearmanr(x, y)
+                if not np.isnan(ic):
+                    feature_ics[feat].append(ic)
+                    
+    # Average ICs and compute weights
+    weights = {}
+    print("\nDynamic Weights (based on historical IC):")
+    for feat in features:
+        avg_ic = np.mean(feature_ics[feat]) if len(feature_ics[feat]) > 0 else 0
+        # down_capture should be negatively correlated, so invert it
+        if feat == 'down_capture':
+            avg_ic = -avg_ic
+        
+        # We only assign weight if IC > 0 (meaning it was predictive)
+        weight = max(0.01, avg_ic) # floor at 0.01 to keep all factors slightly active
+        weights[feat] = weight
+        print(f"  {feat}: IC = {avg_ic:.3f} -> Weight = {weight:.3f}")
+        
+    total_weight = sum(weights.values())
+    for feat in weights:
+        weights[feat] /= total_weight
+        
+    # Now calculate current metrics
+    print("\nCalculating current metrics and scores...")
     results = []
     
-    for mf_id in target_funds:
-        try:
-            fund_info = provider.list_all_mf()
-            fund_name = fund_info[fund_info['mfId'] == mf_id]['name'].values[0]
-            
-            print(f"Processing {fund_name} ({mf_id})...")
-            fund_df = provider.get_mf_chart(mf_id)
-            fund_df['timestamp'] = pd.to_datetime(fund_df['timestamp'])
-            fund_df['nav'] = pd.to_numeric(fund_df['nav'], errors='coerce')
-            
-            if len(fund_df) < 250:
-                print(f"Skipping {fund_name}: Insufficient data (< 1 year)")
-                continue
-                
-            metrics = calculate_metrics(fund_df, benchmark_df)
-            
-            if metrics:
-                metrics['mfId'] = mf_id
-                metrics['name'] = fund_name
-                results.append(metrics)
-                
-        except Exception as e:
-            print(f"Error processing {mf_id}: {str(e)}")
+    for mfId, data in funds_data.items():
+        metrics = calculate_fund_metrics(data['nav'], bench_nav, current_date)
+        if metrics is None:
             continue
-
-    if not results:
-        print("No results generated.")
-        return
-
-    df_results = pd.DataFrame(results)
-    
-    # Calculate Score
-    # Weights
-    # Win Rate (Consistency): 20%
-    # Sharpe: 20%
-    # Sortino: 20%
-    # Alpha: 20%
-    # Downside Capture (Lower is better): 10%
-    # Max Drawdown (Higher (closer to 0) is better): 10%
-    
-    # Normalize metrics
-    metrics_cols = ['win_rate', 'sharpe_ratio', 'sortino_ratio', 'alpha', 'down_capture', 'max_drawdown']
-    
-    # Fill NaNs with median
-    for col in metrics_cols:
-        if col in df_results.columns:
-            df_results[col] = df_results[col].fillna(df_results[col].median())
             
-    df_results['score_consistency'] = normalize_series(df_results['win_rate'])
-    df_results['score_sharpe'] = normalize_series(df_results['sharpe_ratio'])
-    df_results['score_sortino'] = normalize_series(df_results['sortino_ratio'])
-    df_results['score_alpha'] = normalize_series(df_results['alpha'])
-    df_results['score_down_capture'] = normalize_series(df_results['down_capture'], lower_is_better=True)
-    df_results['score_drawdown'] = normalize_series(df_results['max_drawdown']) # max_drawdown is negative, so closer to 0 (max) is better. Normalizing standard way works (max is best).
+        # AUM Penalty (Size trap penalty)
+        aum = data['aum'] if pd.notna(data['aum']) else 0
+        aum_penalty = 1.0
+        if aum > 40000:
+            aum_penalty = 0.85
+        elif aum > 25000:
+            aum_penalty = 0.90
+        elif aum > 15000:
+            aum_penalty = 0.95
+            
+        # History confidence penalty
+        days = (data['nav'].index[-1] - data['nav'].index[0]).days
+        conf = 1.0
+        if days < 3 * 365:
+            conf = 0.8 # Penalize short history
+            
+        res = {
+            'mfId': mfId,
+            'name': data['name'],
+            'data_days': days,
+            'aum': aum
+        }
+        res.update(metrics)
+        
+        # Calculate CAGRs
+        start_nav = data['nav'].iloc[0]
+        end_nav = data['nav'].iloc[-1]
+        
+        for y in [3, 5]:
+            ago = current_date - timedelta(days=y*365)
+            past_nav = data['nav'].loc[:ago]
+            if not past_nav.empty:
+                val = past_nav.iloc[-1]
+                cagr = ((end_nav / val) ** (1/y) - 1) * 100
+                res[f'cagr_{y}y'] = cagr
+            else:
+                res[f'cagr_{y}y'] = 0.0
+                
+        results.append(res)
+        
+    df_res = pd.DataFrame(results)
     
-    df_results['score'] = (
-        0.20 * df_results['score_consistency'] +
-        0.20 * df_results['score_sharpe'] +
-        0.20 * df_results['score_sortino'] +
-        0.20 * df_results['score_alpha'] +
-        0.10 * df_results['score_down_capture'] +
-        0.10 * df_results['score_drawdown']
-    )
+    # Rank Normalize features
+    for feat in features:
+        if feat == 'down_capture':
+            df_res[f'{feat}_score'] = df_res[feat].rank(ascending=False, pct=True) * 100
+        else:
+            df_res[f'{feat}_score'] = df_res[feat].rank(ascending=True, pct=True) * 100
+            
+    # Compute composite score
+    df_res['raw_score'] = 0.0
+    for feat in features:
+        df_res['raw_score'] += df_res[f'{feat}_score'] * weights[feat]
+        
+    # Apply penalties
+    # AUM Penalty logic inline
+    aum_penalties = []
+    for aum in df_res['aum']:
+        p = 1.0
+        if aum > 40000: p = 0.85
+        elif aum > 25000: p = 0.90
+        elif aum > 15000: p = 0.95
+        aum_penalties.append(p)
+        
+    df_res['aum_penalty'] = aum_penalties
     
-    # Drop rows with NaN score
-    df_results = df_results.dropna(subset=['score'])
+    conf_penalties = []
+    for d in df_res['data_days']:
+        p = 1.0
+        if d < 3 * 365: p = 0.8
+        conf_penalties.append(p)
+        
+    df_res['conf_penalty'] = conf_penalties
     
-    # Rank
-    df_results['rank'] = df_results['score'].rank(ascending=False).astype(int)
+    df_res['score'] = df_res['raw_score'] * df_res['aum_penalty'] * df_res['conf_penalty']
+    df_res['rank'] = df_res['score'].rank(ascending=False).astype(int)
     
-    # Sort by rank
-    df_results = df_results.sort_values('rank')
+    df_res = df_res.sort_values('rank')
     
-    # Select columns for output
-    output_columns = [
-        'mfId', 'name', 'rank', 'score', 'data_days', 'cagr_3y', 'cagr_5y', 
-        'alpha', 'beta', 'sharpe_ratio', 'sortino_ratio', 'max_drawdown', 'down_capture', 'win_rate'
-    ]
+    cols = ['mfId', 'name', 'rank', 'score', 'data_days', 'cagr_3y', 'cagr_5y', 'win_rate', 'swing_elasticity']
+    final_df = df_res[cols].copy()
     
-    final_df = df_results[output_columns]
+    # Format
+    final_df['score'] = final_df['score'].round(2)
+    final_df['cagr_3y'] = final_df['cagr_3y'].round(2).astype(str) + '%'
+    final_df['cagr_5y'] = final_df['cagr_5y'].round(2).astype(str) + '%'
+    final_df['win_rate'] = (final_df['win_rate'] * 100).round(2).astype(str) + '%'
+    final_df['swing_elasticity'] = final_df['swing_elasticity'].round(3)
     
-    # Save to CSV
-    output_path = f"results/{SECTOR}_{MODEL}.csv"
-    os.makedirs('results', exist_ok=True)
-    final_df.to_csv(output_path, index=False)
-    print(f"Results saved to {output_path}")
+    # Output
+    out_dir = os.path.join(os.path.dirname(__file__), '../../results')
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, f'{SECTOR}_{MODEL}.csv')
+    
+    final_df.to_csv(out_path, index=False)
+    print(f"\\nResults saved to {out_path}")
+    print(final_df.head(10).to_string(index=False))
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Mid Cap MF screener (Gemini)")
-    parser.add_argument(
-        "--date",
-        default=None,
-        metavar="YYYY-MM-DD",
-        help="Cached data folder under ./data (default: today)",
-    )
-    main(date=parser.parse_args().date)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--date", default=None, help="Cached data folder date")
+    args = parser.parse_args()
+    main(args.date)

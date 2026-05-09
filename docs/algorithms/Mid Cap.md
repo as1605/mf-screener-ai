@@ -1,6 +1,6 @@
 # Mid Cap Strategy
 
-This strategy targets the Indian Mid Cap mutual fund sector. It combines the insights from three different AI models (Claude, Gemini, Codex) to create a robust composite score.
+This strategy targets the Indian Mid Cap mutual fund sector. It combines the insights from three different AI models (Claude, Gemini, GPT) to create a robust composite score.
 
 ## Overall Strategy
 
@@ -15,16 +15,16 @@ The Mid Cap sector is known for its growth potential, balancing the stability of
 
 Based on the latest analysis, the top 5 funds are:
 
-1.  **HDFC Mid Cap Fund** (Score: 0.989)
-2.  **Invesco India Midcap Fund** (Score: 0.917)
-3.  **Edelweiss Mid Cap Fund** (Score: 0.879)
-4.  **Nippon India Growth Mid Cap Fund** (Score: 0.829)
-5.  **ICICI Pru Midcap Fund** (Score: 0.795)
+1.  **Invesco India Midcap Fund** (Score: 0.947)
+2.  **Edelweiss Mid Cap Fund** (Score: 0.931)
+3.  **HDFC Mid Cap Fund** (Score: 0.869)
+4.  **Union Midcap Fund** (Score: 0.852)
+5.  **Kotak Midcap Fund** (Score: 0.799)
 
 [View Full Results (CSV)](../../results/Mid%20Cap.csv)
 
 ## Model Breakdown
 
 *   [**Claude**](Mid%20Cap_Claude.md): A comprehensive multi-factor model focusing on risk-adjusted returns, consistency, and market regime behavior.
-*   [**Codex**](Mid%20Cap_Codex.md): A research-led model optimized for predicting 1-year forward excess returns using walk-forward validation.
+*   [**GPT**](Mid%20Cap_GPT.md): SIP-forward ranking with a mid-cap prior, seventeen NAV-derived features, and weights learned from look-ahead-safe historical SIP alpha versus Nifty Midcap 150.
 *   [**Gemini**](Mid%20Cap_Gemini.md): A balanced scoring system prioritizing consistency (win rate) and standard risk metrics like Sharpe and Sortino ratios.
