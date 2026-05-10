@@ -12,6 +12,7 @@ Instead of relying on a single fixed strategy, we ask multiple AI models to act 
 *   **Gemini**: For Small/Mid/Total Market funds, uses multi-factor regression to isolate "pure alpha" from market-cap exposure (Omega Ratio, downside resistance, consistency). For **Multi Asset**, emphasises equity cycle agility (up vs down beta), precious-metals upside capture, Sortino, and SIP return stability.
 *   **GPT** (Small Cap, Mid Cap, Multi Asset): Blends NAV-derived SIP alignment, benchmark capture and recovery metrics, and AUM-aware confidence with feature weights learned from a look-ahead-safe historical SIP panel (Spearman vs forward SIP alpha), mixed with a fixed research prior. **Mid Cap** extends the family with a richer factor set (information ratio, downside beta, correction defence, Omega, Ulcer, CDaR, style purity). The Multi Asset variant adds sleeve/regime features (metals capture, stress alphas, exposure stability).
 *   **Codex** (Total Market): Uses walk-forward validation and weight tuning to optimize for forward returns. Implements subsector-aware rank blending to reduce style overconcentration.
+*   **Grok** (Small Cap, Mid Cap, Multi Asset): Fixed **theory-weighted** composites on **robust cross-sectional z-scores** (median/MAD), mapped through a **normal CDF** for score spread. **Small Cap** stresses rebound capture, SIP stability, recovery after drawdowns, vol-adjusted alpha, downside resilience, and drawdown avoidance. **Mid Cap** adds nine-factor hybrid vs mid benchmark plus **large/small** paths for style purity, drift, and timing. **Multi Asset** aligns fund NAV to **gold**, **silver**, and **Nifty 500** for cycle capture, metals beta, equity participation, drawdown pain, and allocation stability.
 
 ## Disclaimer
 
@@ -23,11 +24,13 @@ These algorithms are AI-generated and experimental. They rely on historical data
     *   [Claude Strategy](algorithms/Small%20Cap_Claude.md)
     *   [Gemini Strategy](algorithms/Small%20Cap_Gemini.md)
     *   [GPT Strategy](algorithms/Small%20Cap_GPT.md)
+    *   [Grok Strategy](algorithms/Small%20Cap_Grok.md)
 
 *   [Mid Cap Strategy Overview](algorithms/Mid%20Cap.md)
     *   [Claude Strategy](algorithms/Mid%20Cap_Claude.md)
     *   [Gemini Strategy](algorithms/Mid%20Cap_Gemini.md)
     *   [GPT Strategy](algorithms/Mid%20Cap_GPT.md)
+    *   [Grok Strategy](algorithms/Mid%20Cap_Grok.md)
 
 *   [Total Market Strategy Overview](algorithms/Total%20Market.md)
     *   [Claude Strategy](algorithms/Total%20Market_Claude.md)
@@ -38,3 +41,4 @@ These algorithms are AI-generated and experimental. They rely on historical data
     *   [Claude Strategy](algorithms/Multi%20Asset_Claude.md)
     *   [Gemini Strategy](algorithms/Multi%20Asset_Gemini.md)
     *   [GPT Strategy](algorithms/Multi%20Asset_GPT.md)
+    *   [Grok Strategy](algorithms/Multi%20Asset_Grok.md)

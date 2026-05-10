@@ -1,6 +1,6 @@
 # Mid Cap Strategy
 
-This strategy targets the Indian Mid Cap mutual fund sector. It combines the insights from three different AI models (Claude, Gemini, GPT) to create a robust composite score.
+This strategy targets the Indian Mid Cap mutual fund sector. It combines the insights from four AI models (Claude, Gemini, GPT, Grok) into a composite score.
 
 ## Overall Strategy
 
@@ -15,11 +15,11 @@ The Mid Cap sector is known for its growth potential, balancing the stability of
 
 Based on the latest analysis, the top 5 funds are:
 
-1.  **Invesco India Midcap Fund** (Score: 0.947)
-2.  **Edelweiss Mid Cap Fund** (Score: 0.931)
-3.  **HDFC Mid Cap Fund** (Score: 0.869)
-4.  **Union Midcap Fund** (Score: 0.852)
-5.  **Kotak Midcap Fund** (Score: 0.799)
+1.  **Invesco India Midcap Fund** (Score: 0.960)
+2.  **Edelweiss Mid Cap Fund** (Score: 0.927)
+3.  **HDFC Mid Cap Fund** (Score: 0.762)
+4.  **Union Midcap Fund** (Score: 0.739)
+5.  **Baroda BNP Paribas Mid Cap Fund** (Score: 0.739)
 
 [View Full Results (CSV)](../../results/Mid%20Cap.csv)
 
@@ -28,3 +28,4 @@ Based on the latest analysis, the top 5 funds are:
 *   [**Claude**](Mid%20Cap_Claude.md): A comprehensive multi-factor model focusing on risk-adjusted returns, consistency, and market regime behavior.
 *   [**GPT**](Mid%20Cap_GPT.md): SIP-forward ranking with a mid-cap prior, seventeen NAV-derived features, and weights learned from look-ahead-safe historical SIP alpha versus Nifty Midcap 150.
 *   [**Gemini**](Mid%20Cap_Gemini.md): A balanced scoring system prioritizing consistency (win rate) and standard risk metrics like Sharpe and Sortino ratios.
+*   [**Grok**](Mid%20Cap_Grok.md): Nine-factor theory blend (swing elasticity, downside capture, rebound, block alpha, timing convexity, style purity/drift, recovery speed, momentum quality) with signed weights and CDF spread.
