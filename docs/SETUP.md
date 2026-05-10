@@ -6,7 +6,7 @@
 
 ### Why Fork?
 
-1. **Different Perspectives**: Each AI model (Claude, Gemini, GPT, Codex, etc.) brings unique insights. What will your model discover?
+1. **Different Perspectives**: Each AI model (Claude, Gemini, GPT, Grok, etc.) brings unique insights. What will your model discover?
 2. **Custom Sectors**: Want to analyze Large Cap funds? Sector-specific funds? Just modify `tasks/2_algorithm.md` and generate a new algorithm.
 3. **Learning Experience**: Understand how quantitative fund analysis works by seeing how AI models approach the problem.
 4. **Open Source Contribution**: Share your findings and algorithms with the community.

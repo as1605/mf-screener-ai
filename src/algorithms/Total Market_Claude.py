@@ -1,56 +1,136 @@
 #!/usr/bin/env python3
 """
 Total Market Mutual Fund Scoring Algorithm - Claude
+====================================================
 
-An adaptive multi-horizon conviction model for scoring Indian Total Market
-mutual funds (Contra, Flexi Cap, Focused, Multi Cap, Value).
+Hybrid SIP-Hold Composite (HSC) for Indian "broad market" diversified
+active funds: Flexi Cap, Multi Cap, Focused, Value, Contra.
 
-Total Market funds enjoy maximum portfolio flexibility — they can invest across
-market caps, sectors, and styles.  The key challenge is identifying which fund
-managers consistently convert that freedom into alpha.  This model focuses on
-aspects that are uniquely predictive for this diversified category:
+The User's Scenario
+-------------------
+The user invests via 12 monthly SIPs in the first year, then holds without
+any further contributions in the second year, and exits with a single
+sell at month 24.  The cashflow timeline:
 
-- Skill persistence via excess-return autocorrelation and rolling IC
-- Path quality through gain-to-pain ratios, tail analysis, and CVaR
-- Asymmetric participation in up/down market movements
-- Cross-horizon rank consistency (reliable across timeframes)
-- Tempered momentum with acceleration detection
+    Month 1 ........ Month 12 ........ Month 24
+       |                |                  |
+       |--- SIP buys ---|----- HOLD -------|
+       12 monthly cashflows           1 sell
+       (1st of each month)            (final NAV)
 
-Architecture
-------------
-~33 metrics per fund across seven research-backed categories, normalised to
-peer-group percentiles and combined via fixed weights:
+This hybrid structure has two distinct phases that demand different fund
+qualities:
 
-  1. Skill & Alpha Quality        25%   Alpha, IR, T-M decomposition,
-                                         excess-return autocorrelation, active divergence
-  2. Path Quality & Tail Risk     16%   Gain-to-pain, tail ratio, CVaR,
-                                         Ulcer PI, Calmar
-  3. Drawdown Resilience          14%   Max DD, pain index, current DD,
-                                         recovery speed, avg DD duration
-  4. Regime Adaptability          14%   Capture spread, transition alpha,
-                                         beta asymmetry, bear outperformance, T-M gamma
-  5. Consistency & Stability      13%   Rolling beat%, cross-horizon rank
-                                         consistency, sortino stability, hit rate
-  6. Momentum & Acceleration      13%   Relative momentum, acceleration,
-                                         vol-normalised momentum, DD-adjusted momentum
-  7. Distribution Quality          5%   Return skewness, excess kurtosis
+  * Year 1 (accumulation): cost-basis averaging cushions volatility -
+    drawdowns can actually help by lowering average entry NAV.
+  * Year 2 (hold): no new contributions, so a deep drawdown in months
+    13-24 directly hits the final value with no chance to average down.
+    This phase behaves like a lumpsum hold.
 
-Sector  : Total Market
+A good fund needs to handle both phases.  The algorithm reflects this by
+combining 1Y-window metrics (year-1 quality) and 2Y-window metrics
+(full horizon quality).
+
+Why a New Strategy
+------------------
+Research evidence drives the design:
+
+  * Alpha persistence collapses at multi-year horizons.  SPIVA Persistence
+    Scorecard 2024: only 8.3% of outperforming active equity funds
+    remained outperformers over the next 2 years; among 2022 large-cap
+    top-quartile funds, *0%* stayed top-quartile (vs 6.25% expected
+    randomly).  Implication: do *not* rank funds on raw trailing alpha.
+  * Rolling-window consistency *does* persist.  Indian flexi-cap data
+    shows top funds delivered ~99% of 2Y rolling windows above 20%
+    returns vs ~4% for the category average.  Implication: rank on
+    consistency of rolling outcomes.
+  * Augmented Carhart works.  Funds beating *both* benchmark *and* peer
+    median in rolling windows show 36-month-forward persistence.
+    Implication: use a "beat-both" hit-rate, not just benchmark beat.
+  * Recovery speed matters disproportionately at 24M horizon.  A SIP that
+    buys through a year-1 drawdown only compounds well if NAV recovers
+    in year 2 - and there are no fresh buys to help.  Implication:
+    hard-weight recovery half-life and current DD position.
+  * AUM capacity (Berk-Green).  Capacity erosion of alpha is visible at
+    multi-year horizons.  Implication: penalise extreme AUM where alpha
+    has decayed.
+
+Five-Pillar Architecture
+------------------------
+P1  Hybrid SIP-Hold XIRR             30%   Empirical distribution of all
+                                            rolling 24-month "1Y SIP +
+                                            1Y Hold" XIRRs: median, 25th-
+                                            pct downside, hit-rate vs
+                                            Nifty 500 same-structure XIRR,
+                                            hit-rate vs peer-median XIRR,
+                                            number of windows.
+
+P2  Year-1 Skill Consistency         22%   % of trailing 12M windows with
+                                            positive alpha; % of 12M
+                                            windows beating peer-median
+                                            alpha (augmented Carhart);
+                                            James-Stein-shrunk alpha
+                                            across non-overlapping 12M
+                                            blocks; Information Ratio.
+
+P3  Year-2 Hold Resilience           23%   Forward 24M alpha projection
+                                            through empirical Nifty-500
+                                            regime transition matrix;
+                                            recovery half-life from worst
+                                            trough; bear/correction excess
+                                            return; current drawdown
+                                            depth (entry valuation signal).
+
+P4  Active Conviction & Capacity     10%   Active divergence x alpha
+                                            (genuine convicted bets that
+                                            work); cross-regime beta
+                                            stability; soft AUM-capacity
+                                            haircut (Berk-Green smooth
+                                            penalty for AUM > 25,000 Cr).
+
+P5  Compounding Path Quality         15%   Gain-to-pain, tail ratio,
+                                            Ulcer Performance Index;
+                                            vol-drag-adjusted geometric
+                                            return (alpha - sigma^2/2);
+                                            current drawdown.
+
+Composite = sum(w * pillar_percentile) * confidence_haircut(data_weeks).
+Confidence haircut: 0.55 (<1Y), 0.75 (1-2Y), 0.88 (2-3Y), 0.97 (3-5Y),
+1.00 (5Y+).  Funds with <110 weeks of data are scored on P2-P5 only.
+
+Differentiation vs Other Models in This Repo
+--------------------------------------------
+- The previous Total Market_Claude.py was a 1Y-horizon composite.  This
+  version directly simulates the user's 24-month hybrid cashflow.
+- Codex's tuning approach used walk-forward weight optimisation; we use
+  research-grounded weights (pillar weights derived from SPIVA evidence
+  on what persists at multi-year horizons) and report 24M-IC as a
+  diagnostic so weights stay interpretable.
+- Gemini relied on simple Sharpe + win-rate over a fixed window.  We use
+  rolling-window consistency fractions, Bayesian shrinkage, and
+  regime-conditional projections.
+- No per-sector or per-theme bonuses anywhere - every fund scored using
+  identical, purely data-driven metrics.
+
+Sector  : Total Market (broad-market diversified active)
 Author  : Claude
 """
 
+from __future__ import annotations
+
 import argparse
-import sys
 import logging
+import sys
 import warnings
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+from scipy.optimize import brentq
 
 # ---------------------------------------------------------------------------
-# Path setup
+# Path & logging setup
 # ---------------------------------------------------------------------------
 SCRIPT_DIR = Path(__file__).resolve().parent
 SRC_DIR = SCRIPT_DIR.parent
@@ -59,9 +139,10 @@ ROOT_DIR = SRC_DIR.parent
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from mf_data_provider import MfDataProvider
+from mf_data_provider import MfDataProvider  # noqa: E402
 
 warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -69,19 +150,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-SECTOR = "Total Market"
+
+# ===================================================================
+# Configuration
+# ===================================================================
+SECTOR_NAME = "Equity"  # MfDataProvider sector key
 SUBSECTORS = [
-    "Contra Fund",
     "Flexi Cap Fund",
-    "Focused Fund",
     "Multi Cap Fund",
+    "Focused Fund",
     "Value Fund",
+    "Contra Fund",
 ]
-BENCHMARK_INDEX = "Total Market"
-RISK_FREE_RATE = 0.065
+PRIMARY_BENCHMARK = "Total Market"           # resolves to .NIFTY500
+RISK_FREE_RATE = 0.065                       # India ~6.5% T-bill proxy
 WEEKS_PER_YEAR = 52
 
 LB_3M = 13
@@ -91,37 +173,64 @@ LB_2Y = 104
 LB_3Y = 156
 LB_5Y = 260
 
-MIN_WEEKS_FOR_ANALYSIS = 50
+# Data adequacy thresholds
+MIN_WEEKS_FOR_ANALYSIS = 30
+MIN_WEEKS_FOR_2Y_SIP = 110   # need at least one full hybrid window
 MIN_WEEKS_3Y = 150
 MIN_WEEKS_5Y = 250
 
-ROLLING_WINDOW = LB_1Y
-ROLLING_STEP = 4
+# The user's hybrid scenario
+SIP_MONTHS = 12
+HOLD_MONTHS = 12
+TOTAL_MONTHS = SIP_MONTHS + HOLD_MONTHS  # = 24
+HYBRID_HORIZON_WEEKS = TOTAL_MONTHS * 4 + (TOTAL_MONTHS // 3)  # ~104
+SIP_MONTHLY_AMOUNT = 10000.0  # only ratio matters for XIRR
+
+PILLAR_WEIGHTS = {
+    "p1_hybrid_sip_hold":    0.30,
+    "p2_skill_consistency":  0.22,
+    "p3_hold_resilience":    0.23,
+    "p4_conviction_capac":   0.10,
+    "p5_compounding_path":   0.15,
+}
+assert abs(sum(PILLAR_WEIGHTS.values()) - 1.0) < 1e-9
+
+REGIMES = ("Bull", "Sideways", "Correction", "Bear")
+N_REGIMES = len(REGIMES)
 
 OUTPUT_DIR = ROOT_DIR / "results"
-OUTPUT_FILE = OUTPUT_DIR / f"{SECTOR}_Claude.csv"
+OUTPUT_FILE = OUTPUT_DIR / "Total Market_Claude.csv"
 
 
 # ===================================================================
-# Data Cleaning
+# 1. Data Loading & Cleaning
 # ===================================================================
 
 def clean_nav_to_series(df: pd.DataFrame) -> pd.Series:
-    """Convert raw chart DataFrame to a sorted, clean NAV Series."""
-    if df.empty:
+    """Convert raw chart DataFrame to a sorted, dedup'd, tz-naive NAV Series."""
+    if df is None or len(df) == 0:
         return pd.Series(dtype=float)
     out = df.copy()
     out["timestamp"] = pd.to_datetime(out["timestamp"], utc=True, errors="coerce")
     out["nav"] = pd.to_numeric(out["nav"], errors="coerce")
     out = out.dropna(subset=["timestamp", "nav"])
     out = out[out["nav"] > 0]
-    out = out.sort_values("timestamp")
-    out = out.drop_duplicates(subset=["timestamp"], keep="last")
-    return out.set_index("timestamp")["nav"]
+    out = out.sort_values("timestamp").drop_duplicates("timestamp", keep="last")
+    s = out.set_index("timestamp")["nav"]
+    if s.index.tz is not None:
+        s.index = s.index.tz_convert(None)
+    return s
+
+
+def align_to_index(s: pd.Series, idx: pd.DatetimeIndex) -> pd.Series:
+    """Reindex a NAV series onto a target index with forward-fill (max 1 wk)."""
+    if len(s) == 0:
+        return pd.Series(index=idx, dtype=float)
+    return s.reindex(idx, method="ffill", limit=1)
 
 
 # ===================================================================
-# Return & Volatility Helpers
+# 2. Return / Volatility Helpers
 # ===================================================================
 
 def weekly_returns(nav: pd.Series) -> pd.Series:
@@ -129,167 +238,396 @@ def weekly_returns(nav: pd.Series) -> pd.Series:
 
 
 def annualised_return(nav: pd.Series, weeks: int) -> Optional[float]:
-    if len(nav) < weeks + 1:
+    if nav is None or len(nav) < weeks + 1:
         return None
     start = nav.iloc[-(weeks + 1)]
     end = nav.iloc[-1]
-    if start <= 0:
+    if start <= 0 or end <= 0:
         return None
     years = weeks / WEEKS_PER_YEAR
     return float((end / start) ** (1.0 / years) - 1.0)
 
 
-def annualised_volatility(rets: pd.Series) -> float:
-    if len(rets) < 8:
-        return np.nan
-    return float(rets.std(ddof=1) * np.sqrt(WEEKS_PER_YEAR))
-
-
-def downside_deviation(rets: pd.Series, mar: float = RISK_FREE_RATE) -> float:
-    if len(rets) < 8:
-        return np.nan
-    weekly_mar = (1 + mar) ** (1 / WEEKS_PER_YEAR) - 1
-    diff = rets - weekly_mar
-    neg = diff[diff < 0]
-    if len(neg) == 0:
-        return 0.0
-    return float(np.sqrt((neg ** 2).mean()) * np.sqrt(WEEKS_PER_YEAR))
-
-
-# ===================================================================
-# Risk-Adjusted Ratios
-# ===================================================================
-
-def sharpe_ratio(cagr: Optional[float], vol: float) -> Optional[float]:
-    if cagr is None or pd.isna(vol) or vol <= 1e-12:
+def annualised_volatility(returns: pd.Series) -> Optional[float]:
+    if returns is None or len(returns) < 12:
         return None
-    return float((cagr - RISK_FREE_RATE) / vol)
+    return float(returns.std(ddof=1) * np.sqrt(WEEKS_PER_YEAR))
 
 
-def sortino_ratio_calc(cagr: Optional[float], dd: float) -> Optional[float]:
-    if cagr is None or pd.isna(dd) or dd <= 1e-12:
-        return None
-    return float((cagr - RISK_FREE_RATE) / dd)
-
-
-def calmar_ratio_calc(cagr: Optional[float], mdd: float) -> Optional[float]:
-    if cagr is None or pd.isna(mdd) or abs(mdd) < 1e-12:
-        return None
-    return float(cagr / abs(mdd))
-
-
-# ===================================================================
-# Alpha & Benchmark-Relative Metrics
-# ===================================================================
-
-def compute_alpha_beta(
-    fund_ret: pd.Series, bench_ret: pd.Series
-) -> Tuple[Optional[float], Optional[float]]:
-    """Jensen's alpha (annualised) and beta via OLS."""
-    aligned = pd.concat(
-        [fund_ret.rename("fund"), bench_ret.rename("bench")], axis=1
-    ).dropna()
-    if len(aligned) < 20:
+def alpha_beta(fund_ret: pd.Series, bench_ret: pd.Series) -> Tuple[Optional[float], Optional[float]]:
+    """Annualised Jensen alpha and beta via OLS on weekly excess returns."""
+    aligned = pd.concat({"f": fund_ret, "b": bench_ret}, axis=1).dropna()
+    if len(aligned) < 12:
         return None, None
-
-    y = aligned["fund"].values
-    x = aligned["bench"].values
-    var_x = np.var(x, ddof=1)
-    if var_x <= 1e-12:
+    x = aligned["b"].values
+    y = aligned["f"].values
+    var_x = float(np.var(x, ddof=1))
+    if var_x < 1e-12:
         return None, None
-
-    cov = np.cov(x, y)[0, 1]
-    beta = float(cov / var_x)
+    beta = float(np.cov(x, y, ddof=1)[0, 1] / var_x)
     rf_w = (1 + RISK_FREE_RATE) ** (1 / WEEKS_PER_YEAR) - 1
-    alpha_w = np.mean(y) - rf_w - beta * (np.mean(x) - rf_w)
+    alpha_w = float(np.mean(y) - rf_w - beta * (np.mean(x) - rf_w))
     return float(alpha_w * WEEKS_PER_YEAR), beta
 
 
-def information_ratio(
-    fund_ret: pd.Series, bench_ret: pd.Series
-) -> Optional[float]:
-    """Annualised IR = excess return / tracking error."""
-    aligned = pd.concat(
-        [fund_ret.rename("fund"), bench_ret.rename("bench")], axis=1
-    ).dropna()
+def information_ratio(fund_ret: pd.Series, bench_ret: pd.Series) -> Optional[float]:
+    aligned = pd.concat({"f": fund_ret, "b": bench_ret}, axis=1).dropna()
     if len(aligned) < 20:
         return None
-    excess = aligned["fund"] - aligned["bench"]
+    excess = aligned["f"] - aligned["b"]
     te = excess.std(ddof=1) * np.sqrt(WEEKS_PER_YEAR)
     if te <= 1e-12:
         return None
     return float((excess.mean() * WEEKS_PER_YEAR) / te)
 
 
-def treynor_mazuy_decomposition(
-    fund_ret: pd.Series, bench_ret: pd.Series
-) -> Tuple[Optional[float], Optional[float]]:
-    """
-    Treynor-Mazuy market timing model separates stock-picking skill
-    (alpha) from market timing (gamma).
-    """
-    aligned = pd.concat(
-        [fund_ret.rename("fund"), bench_ret.rename("bench")], axis=1
-    ).dropna()
-    if len(aligned) < 30:
-        return None, None
-
-    rf_w = (1 + RISK_FREE_RATE) ** (1 / WEEKS_PER_YEAR) - 1
-    y = aligned["fund"].values - rf_w
-    x_excess = aligned["bench"].values - rf_w
-    X = np.column_stack([np.ones(len(x_excess)), x_excess, x_excess ** 2])
-
-    try:
-        coeffs, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
-        tm_alpha = float(coeffs[0] * WEEKS_PER_YEAR)
-        tm_gamma = float(coeffs[2])
-        return tm_alpha, tm_gamma
-    except Exception:
-        return None, None
-
-
-def active_divergence(
-    fund_ret: pd.Series, bench_ret: pd.Series
-) -> Optional[float]:
-    """
-    Tracking error as a proxy for active management intensity.
-    Higher tracking error implies the fund is taking more active bets.
-    Combined with positive alpha, this signals genuine skill.
-    """
-    aligned = pd.concat(
-        [fund_ret.rename("fund"), bench_ret.rename("bench")], axis=1
-    ).dropna()
-    if len(aligned) < 20:
+def max_drawdown_calc(nav: pd.Series) -> Optional[float]:
+    if nav is None or len(nav) < 8:
         return None
-    excess = aligned["fund"] - aligned["bench"]
-    return float(excess.std(ddof=1) * np.sqrt(WEEKS_PER_YEAR))
+    peak = nav.cummax()
+    dd = nav / peak - 1.0
+    return float(dd.min())
 
 
 # ===================================================================
-# Novel Metrics: Path Quality & Tail Risk
+# 3. NIFTY-500 Regime Classifier
+# ===================================================================
+#
+#   Bull       : 12W momentum > +5% AND drawdown_26W shallower than -5%
+#   Sideways   : everything else with drawdown_26W shallower than -10%
+#   Correction : drawdown_26W between -10% and -20%
+#   Bear       : drawdown_26W <= -20% OR 12W momentum <= -10%
+
+def _classify_week(mom_12w: float, dd_26w: float) -> int:
+    if pd.isna(mom_12w) or pd.isna(dd_26w):
+        return -1
+    if dd_26w <= -0.20 or mom_12w <= -0.10:
+        return 3
+    if dd_26w <= -0.10:
+        return 2
+    if mom_12w > 0.05 and dd_26w > -0.05:
+        return 0
+    return 1
+
+
+def regime_series(bench_nav: pd.Series) -> pd.Series:
+    if len(bench_nav) < LB_6M + 4:
+        return pd.Series(dtype="float64", index=bench_nav.index)
+    mom_12w = bench_nav.pct_change(12)
+    peak_26w = bench_nav.rolling(LB_6M, min_periods=8).max()
+    dd_26w = bench_nav / peak_26w - 1.0
+    out = pd.Series(np.nan, index=bench_nav.index, dtype="float64")
+    for ts in bench_nav.index:
+        r = _classify_week(mom_12w.get(ts, np.nan), dd_26w.get(ts, np.nan))
+        if r >= 0:
+            out[ts] = float(r)
+    return out
+
+
+def empirical_forward_mix(reg: pd.Series, horizon_weeks: int = LB_2Y) -> np.ndarray:
+    """Mean fraction of next `horizon_weeks` spent in each regime, by start regime."""
+    valid = reg.dropna().astype(int)
+    if len(valid) < horizon_weeks + 4:
+        # fallback: each regime persists with ~70% probability
+        M = np.eye(N_REGIMES) * 0.7 + np.ones((N_REGIMES, N_REGIMES)) * (0.3 / N_REGIMES)
+        return M
+    arr = valid.values
+    M = np.zeros((N_REGIMES, N_REGIMES))
+    counts = np.zeros(N_REGIMES)
+    for i in range(len(arr) - horizon_weeks):
+        r = int(arr[i])
+        forward = arr[i + 1: i + 1 + horizon_weeks]
+        if len(forward) < horizon_weeks:
+            continue
+        for rp in range(N_REGIMES):
+            M[r, rp] += float(np.mean(forward == rp))
+        counts[r] += 1
+    for r in range(N_REGIMES):
+        if counts[r] > 0:
+            M[r] /= counts[r]
+        else:
+            M[r] = np.bincount(arr, minlength=N_REGIMES).astype(float) / max(1, len(arr))
+    return M
+
+
+def soft_current_regime(reg: pd.Series, recent_weeks: int = 8) -> np.ndarray:
+    recent = reg.dropna().iloc[-recent_weeks:].astype(int)
+    if len(recent) == 0:
+        return np.ones(N_REGIMES) / N_REGIMES
+    counts = np.bincount(recent.values, minlength=N_REGIMES).astype(float)
+    if counts.sum() == 0:
+        return np.ones(N_REGIMES) / N_REGIMES
+    return counts / counts.sum()
+
+
+def per_regime_alpha(
+    fund_ret: pd.Series,
+    bench_ret: pd.Series,
+    reg: pd.Series,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Annualised alpha for each regime; NaN where < 8 weekly observations."""
+    aligned = pd.concat({"f": fund_ret, "b": bench_ret, "r": reg}, axis=1).dropna()
+    rf_w = (1 + RISK_FREE_RATE) ** (1 / WEEKS_PER_YEAR) - 1
+    alphas = np.full(N_REGIMES, np.nan)
+    n_obs = np.zeros(N_REGIMES, dtype=int)
+    for r in range(N_REGIMES):
+        sub = aligned[aligned["r"].astype(int) == r]
+        n = len(sub)
+        if n < 8:
+            n_obs[r] = n
+            continue
+        x = sub["b"].values - rf_w
+        y = sub["f"].values - rf_w
+        var_x = float(np.var(x, ddof=1))
+        if var_x < 1e-12:
+            n_obs[r] = n
+            continue
+        beta = float(np.cov(x, y, ddof=1)[0, 1] / var_x)
+        alpha_w = float(np.mean(y) - beta * np.mean(x))
+        # Sample-size shrink toward zero + clip
+        shrink = 1.0 / (1.0 + 4.0 / np.sqrt(n))
+        annual = float(np.clip(alpha_w * WEEKS_PER_YEAR * shrink, -0.50, 0.50))
+        alphas[r] = annual
+        n_obs[r] = n
+    return alphas, n_obs
+
+
+def peer_mean_per_regime(per_fund_alphas: Dict[str, np.ndarray]) -> np.ndarray:
+    if not per_fund_alphas:
+        return np.zeros(N_REGIMES)
+    stack = np.vstack(list(per_fund_alphas.values()))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        means = np.nanmean(stack, axis=0)
+    means[np.isnan(means)] = 0.0
+    return means
+
+
+def expected_forward_alpha(
+    fund_alphas: np.ndarray,
+    peer_alphas: np.ndarray,
+    current_probs: np.ndarray,
+    transition: np.ndarray,
+    min_observed_regimes: int = 2,
+) -> Optional[float]:
+    n_observed = int(np.sum(~np.isnan(fund_alphas)))
+    if n_observed < min_observed_regimes:
+        return None
+    filled = np.where(np.isnan(fund_alphas), peer_alphas, fund_alphas)
+    if np.any(np.isnan(filled)):
+        return None
+    forward_mix = current_probs @ transition
+    return float(forward_mix @ filled)
+
+
+def regime_capture_spread(
+    fund_ret: pd.Series, bench_ret: pd.Series, reg: pd.Series
+) -> Optional[float]:
+    aligned = pd.concat({"f": fund_ret, "b": bench_ret, "r": reg}, axis=1).dropna()
+    if len(aligned) < 30:
+        return None
+    up_mask = aligned["r"].astype(int).isin([0, 1])
+    dn_mask = aligned["r"].astype(int).isin([2, 3])
+    if up_mask.sum() < 8 or dn_mask.sum() < 8:
+        return None
+    bench_up = aligned.loc[up_mask, "b"].mean()
+    fund_up = aligned.loc[up_mask, "f"].mean()
+    bench_dn = aligned.loc[dn_mask, "b"].mean()
+    fund_dn = aligned.loc[dn_mask, "f"].mean()
+    if abs(bench_up) < 1e-6 or abs(bench_dn) < 1e-6:
+        return None
+    return float((fund_up / bench_up) - (fund_dn / bench_dn))
+
+
+def bear_correction_outperformance(
+    fund_ret: pd.Series, bench_ret: pd.Series, reg: pd.Series
+) -> Optional[float]:
+    aligned = pd.concat({"f": fund_ret, "b": bench_ret, "r": reg}, axis=1).dropna()
+    bear = aligned[aligned["r"].astype(int).isin([2, 3])]
+    if len(bear) < 8:
+        return None
+    return float((bear["f"] - bear["b"]).mean() * WEEKS_PER_YEAR)
+
+
+# ===================================================================
+# 4. James-Stein Shrinkage (P2 Bayesian alpha)
+# ===================================================================
+
+def block_alphas(
+    fund_ret: pd.Series,
+    bench_ret: pd.Series,
+    block_weeks: int = LB_1Y,    # 12-month blocks for 24M-target horizon
+    max_blocks: int = 5,
+) -> np.ndarray:
+    aligned = pd.concat({"f": fund_ret, "b": bench_ret}, axis=1).dropna()
+    if len(aligned) < block_weeks:
+        return np.array([])
+    rf_w = (1 + RISK_FREE_RATE) ** (1 / WEEKS_PER_YEAR) - 1
+    out: List[float] = []
+    end = len(aligned)
+    while end - block_weeks >= 0 and len(out) < max_blocks:
+        sub = aligned.iloc[end - block_weeks: end]
+        x = sub["b"].values - rf_w
+        y = sub["f"].values - rf_w
+        var_x = float(np.var(x, ddof=1))
+        if var_x >= 1e-12:
+            beta = float(np.cov(x, y, ddof=1)[0, 1] / var_x)
+            alpha_w = float(np.mean(y) - beta * np.mean(x))
+            out.append(alpha_w * WEEKS_PER_YEAR)
+        end -= block_weeks
+    return np.array(out)
+
+
+def james_stein_shrunk(
+    fund_block_alphas: Dict[str, np.ndarray]
+) -> Tuple[Dict[str, float], float, Dict[str, float]]:
+    """Posterior alpha = peer_mean + lambda * (fund_mean - peer_mean)."""
+    means: Dict[str, float] = {}
+    within_var: Dict[str, float] = {}
+    for fid, blocks in fund_block_alphas.items():
+        if len(blocks) == 0:
+            continue
+        means[fid] = float(np.mean(blocks))
+        within_var[fid] = (
+            float(np.var(blocks, ddof=1) / len(blocks))
+            if len(blocks) > 1
+            else 0.04 ** 2
+        )
+    if not means:
+        return {}, 0.0, {}
+    mu_arr = np.array(list(means.values()))
+    peer_mean = float(np.mean(mu_arr))
+    between_var = float(np.var(mu_arr, ddof=1)) if len(mu_arr) > 1 else 0.0
+    shrunk: Dict[str, float] = {}
+    lams: Dict[str, float] = {}
+    for fid, m in means.items():
+        wv = within_var.get(fid, 0.0)
+        denom = between_var + wv
+        lam = 0.5 if denom < 1e-12 else float(between_var / denom)
+        lam = max(0.0, min(1.0, lam))
+        shrunk[fid] = peer_mean + lam * (m - peer_mean)
+        lams[fid] = lam
+    return shrunk, peer_mean, lams
+
+
+# ===================================================================
+# 5. Hybrid SIP-Hold XIRR Simulation (P1)
+# ===================================================================
+
+def _xirr(cashflows: List[Tuple[pd.Timestamp, float]]) -> Optional[float]:
+    if len(cashflows) < 2:
+        return None
+    t0 = cashflows[0][0]
+    days = np.array([(cf[0] - t0).days for cf in cashflows], dtype=float)
+    amts = np.array([cf[1] for cf in cashflows], dtype=float)
+    if np.all(amts >= 0) or np.all(amts <= 0):
+        return None
+
+    def npv(rate: float) -> float:
+        return float(np.sum(amts / (1.0 + rate) ** (days / 365.0)))
+
+    try:
+        return float(brentq(npv, -0.95, 5.0, xtol=1e-7, maxiter=200))
+    except (ValueError, RuntimeError):
+        try:
+            return float(brentq(npv, -0.999, 20.0, xtol=1e-6, maxiter=200))
+        except (ValueError, RuntimeError):
+            return None
+
+
+def hybrid_sip_xirr_for_window(
+    nav: pd.Series,
+    sip_start: pd.Timestamp,
+    sip_end_exclusive: pd.Timestamp,
+    final_exit: pd.Timestamp,
+    monthly_amount: float = SIP_MONTHLY_AMOUNT,
+) -> Optional[float]:
+    """
+    The user's cashflow:
+      * Buy on 1st of each month from sip_start up to (but not including)
+        sip_end_exclusive.  Buy at first available NAV >= the 1st.
+      * No transactions between sip_end_exclusive and final_exit.
+      * Sell entire holding at last NAV <= final_exit.
+
+    Returns XIRR or None.  No look-ahead - all buys use NAV available
+    on or after the 1st of the buy month.
+    """
+    if nav is None or len(nav) == 0 or final_exit <= sip_start:
+        return None
+    buys = pd.date_range(start=sip_start, end=sip_end_exclusive, freq="MS")
+    buys = buys[buys < sip_end_exclusive]  # exclusive end
+    if len(buys) < SIP_MONTHS - 1:
+        return None
+    units = 0.0
+    cashflows: List[Tuple[pd.Timestamp, float]] = []
+    last_buy_dt: Optional[pd.Timestamp] = None
+    for buy_target in buys:
+        avail = nav.loc[nav.index >= buy_target]
+        if avail.empty:
+            continue
+        buy_dt = avail.index[0]
+        if buy_dt >= final_exit:
+            continue
+        buy_nav = float(avail.iloc[0])
+        if buy_nav <= 0:
+            continue
+        units += monthly_amount / buy_nav
+        cashflows.append((buy_dt, -float(monthly_amount)))
+        last_buy_dt = buy_dt
+    if len(cashflows) < SIP_MONTHS - 1:
+        return None
+    final_avail = nav.loc[nav.index <= final_exit]
+    if final_avail.empty:
+        return None
+    final_dt = final_avail.index[-1]
+    final_nav = float(final_avail.iloc[-1])
+    if last_buy_dt is None or final_dt <= last_buy_dt:
+        return None
+    cashflows.append((final_dt, units * final_nav))
+    return _xirr(cashflows)
+
+
+def rolling_hybrid_sip_xirrs(
+    nav: pd.Series,
+    step_weeks: int = 4,
+    max_windows: int = 60,
+) -> List[Tuple[pd.Timestamp, float]]:
+    """
+    All rolling 24-month "1Y SIP + 1Y Hold" XIRRs anchored at successive
+    starting points, most recent first.  Returns list of (start_ts, xirr).
+    """
+    if nav is None or len(nav) < HYBRID_HORIZON_WEEKS + 8:
+        return []
+    timestamps = nav.index
+    end_idx = len(nav) - 1
+    out: List[Tuple[pd.Timestamp, float]] = []
+    while end_idx - HYBRID_HORIZON_WEEKS >= 0 and len(out) < max_windows:
+        sip_start_ts = timestamps[end_idx - HYBRID_HORIZON_WEEKS]
+        # SIP for first 12 months -> ends ~52 weeks after start
+        sip_end_ts = timestamps[end_idx - HYBRID_HORIZON_WEEKS // 2]
+        final_exit_ts = timestamps[end_idx]
+        sub = nav.iloc[: end_idx + 1]
+        x = hybrid_sip_xirr_for_window(sub, sip_start_ts, sip_end_ts, final_exit_ts)
+        if x is not None and -0.95 < x < 5.0:
+            out.append((sip_start_ts, x))
+        end_idx -= step_weeks
+    return out
+
+
+# ===================================================================
+# 6. Path Quality (P5) - tail / drawdown / recovery
 # ===================================================================
 
 def gain_to_pain_ratio(rets: pd.Series) -> Optional[float]:
-    """
-    Schwager's Gain-to-Pain Ratio: sum of all returns / abs(sum of
-    negative returns). Captures the asymmetry of the return stream.
-    Values > 1.0 indicate attractive return profile.
-    """
     if len(rets) < 20:
         return None
-    total_return = rets.sum()
-    total_pain = abs(rets[rets < 0].sum())
-    if total_pain <= 1e-12:
+    pain = abs(rets[rets < 0].sum())
+    if pain <= 1e-12:
         return 10.0
-    return float(total_return / total_pain)
+    return float(rets.sum() / pain)
 
 
 def tail_ratio(rets: pd.Series) -> Optional[float]:
-    """
-    Ratio of the 95th-percentile return to the absolute value of the
-    5th-percentile return. Values > 1 mean the right tail is fatter
-    than the left — a desirable property for fund selection.
-    """
     if len(rets) < 30:
         return None
     p95 = float(np.percentile(rets, 95))
@@ -299,1128 +637,799 @@ def tail_ratio(rets: pd.Series) -> Optional[float]:
     return float(p95 / p5)
 
 
-def conditional_value_at_risk(rets: pd.Series, alpha: float = 0.05) -> Optional[float]:
-    """
-    CVaR (Expected Shortfall) at the given alpha level.
-    Measures the expected loss in the worst alpha% of weeks.
-    Returned as annualised negative value (more negative = worse).
-    """
-    if len(rets) < 30:
+def ulcer_index(nav: pd.Series) -> Optional[float]:
+    if nav is None or len(nav) < 10:
         return None
-    cutoff = np.percentile(rets, alpha * 100)
-    tail_losses = rets[rets <= cutoff]
-    if len(tail_losses) == 0:
-        return 0.0
-    return float(tail_losses.mean() * WEEKS_PER_YEAR)
-
-
-def excess_return_autocorrelation(
-    fund_ret: pd.Series, bench_ret: pd.Series, lag: int = 4
-) -> Optional[float]:
-    """
-    Lag-N autocorrelation of weekly excess returns over benchmark.
-    Positive autocorrelation implies the fund's alpha-generation process
-    has momentum / persistence — a strong predictor of future returns
-    as documented in Carhart (1997) and Bollen & Busse (2005).
-    """
-    aligned = pd.concat(
-        [fund_ret.rename("fund"), bench_ret.rename("bench")], axis=1
-    ).dropna()
-    if len(aligned) < 40:
-        return None
-    excess = aligned["fund"] - aligned["bench"]
-    if excess.std() <= 1e-12:
-        return None
-    return float(excess.autocorr(lag=lag))
-
-
-# ===================================================================
-# Capture Ratios & Regime Analysis
-# ===================================================================
-
-def capture_ratios(
-    fund_ret: pd.Series, bench_ret: pd.Series
-) -> Tuple[Optional[float], Optional[float]]:
-    aligned = pd.concat(
-        [fund_ret.rename("fund"), bench_ret.rename("bench")], axis=1
-    ).dropna()
-    if len(aligned) < 20:
-        return None, None
-
-    up_mask = aligned["bench"] > 0
-    down_mask = aligned["bench"] < 0
-
-    up_cap = None
-    if up_mask.sum() > 5:
-        denom = aligned.loc[up_mask, "bench"].mean()
-        if abs(denom) > 1e-12:
-            up_cap = float(aligned.loc[up_mask, "fund"].mean() / denom)
-
-    down_cap = None
-    if down_mask.sum() > 5:
-        denom = aligned.loc[down_mask, "bench"].mean()
-        if abs(denom) > 1e-12:
-            down_cap = float(aligned.loc[down_mask, "fund"].mean() / denom)
-
-    return up_cap, down_cap
-
-
-def dual_beta(
-    fund_ret: pd.Series, bench_ret: pd.Series
-) -> Tuple[Optional[float], Optional[float]]:
-    """Separate betas for up-market and down-market weeks."""
-    aligned = pd.concat(
-        [fund_ret.rename("fund"), bench_ret.rename("bench")], axis=1
-    ).dropna()
-    if len(aligned) < 30:
-        return None, None
-
-    up_beta = None
-    up_mask = aligned["bench"] > 0
-    if up_mask.sum() > 10:
-        x = aligned.loc[up_mask, "bench"].values
-        y = aligned.loc[up_mask, "fund"].values
-        var_x = np.var(x, ddof=1)
-        if var_x > 1e-12:
-            up_beta = float(np.cov(x, y)[0, 1] / var_x)
-
-    down_beta = None
-    down_mask = aligned["bench"] < 0
-    if down_mask.sum() > 10:
-        x = aligned.loc[down_mask, "bench"].values
-        y = aligned.loc[down_mask, "fund"].values
-        var_x = np.var(x, ddof=1)
-        if var_x > 1e-12:
-            down_beta = float(np.cov(x, y)[0, 1] / var_x)
-
-    return up_beta, down_beta
-
-
-def regime_transition_alpha(
-    fund_nav: pd.Series, bench_nav: pd.Series
-) -> Optional[float]:
-    """
-    Alpha during regime transition periods — defined as weeks where the
-    benchmark's trailing 3M return changes sign vs its trailing 6M return.
-    Funds that navigate transitions well (bull→bear, bear→bull) tend to
-    outperform in the following year, as they demonstrate adaptive skill.
-    """
-    if len(fund_nav) < LB_1Y or len(bench_nav) < LB_1Y:
-        return None
-
-    bench_3m = bench_nav.pct_change(LB_3M)
-    bench_6m = bench_nav.pct_change(LB_6M)
-
-    transition_mask = (
-        ((bench_3m > 0) & (bench_6m < 0)) |
-        ((bench_3m < 0) & (bench_6m > 0))
-    )
-    transition_dates = transition_mask[transition_mask].index
-
-    fund_ret = weekly_returns(fund_nav)
-    bench_ret = weekly_returns(bench_nav)
-    common = fund_ret.index.intersection(bench_ret.index).intersection(transition_dates)
-
-    if len(common) < 12:
-        return None
-
-    alpha, _ = compute_alpha_beta(fund_ret.loc[common], bench_ret.loc[common])
-    return alpha
-
-
-def bear_market_outperformance(
-    fund_nav: pd.Series, bench_nav: pd.Series
-) -> Optional[float]:
-    """
-    Average weekly excess return during periods where the benchmark
-    has negative trailing 6M returns.
-    """
-    if len(fund_nav) < LB_1Y or len(bench_nav) < LB_1Y:
-        return None
-
-    fund_ret = weekly_returns(fund_nav)
-    bench_ret = weekly_returns(bench_nav)
-    bench_6m = bench_nav.pct_change(LB_6M)
-    bear_dates = bench_6m[bench_6m < 0].index
-
-    common = fund_ret.index.intersection(bench_ret.index).intersection(bear_dates)
-    if len(common) < 10:
-        return None
-
-    excess = fund_ret.loc[common] - bench_ret.loc[common]
-    return float(excess.mean() * WEEKS_PER_YEAR)
-
-
-# ===================================================================
-# Drawdown Analysis
-# ===================================================================
-
-def max_drawdown_calc(nav: pd.Series) -> float:
-    if len(nav) < 10:
-        return np.nan
-    return float((nav / nav.cummax() - 1.0).min())
-
-
-def pain_index(nav: pd.Series) -> Optional[float]:
-    """
-    Average drawdown across the entire observation period.
-    Unlike max drawdown which captures only the worst episode, pain index
-    reflects the typical underwater experience. Lower (closer to 0) is better.
-    """
-    if len(nav) < 20:
-        return None
-    dd = nav / nav.cummax() - 1.0
-    return float(dd.mean())
-
-
-def ulcer_index(nav: pd.Series) -> float:
-    """sqrt(mean(drawdown_pct^2)). Captures both depth and duration."""
-    if len(nav) < 10:
-        return np.nan
-    dd_pct = (nav / nav.cummax() - 1.0) * 100.0
+    peak = nav.cummax()
+    dd_pct = (nav / peak - 1.0) * 100.0
     return float(np.sqrt(np.mean(dd_pct ** 2)))
 
 
-def ulcer_performance_index(cagr: Optional[float], ui: float) -> Optional[float]:
-    """Martin ratio = (CAGR - Rf) / Ulcer Index."""
-    if cagr is None or pd.isna(ui) or ui <= 1e-12:
+def ulcer_perf_index(cagr: Optional[float], ui: Optional[float]) -> Optional[float]:
+    if cagr is None or ui is None or ui <= 1e-9:
         return None
-    return float((cagr - RISK_FREE_RATE) / (ui / 100.0))
+    return float((cagr - RISK_FREE_RATE) * 100.0 / ui)
 
 
-def recovery_speed_score(nav: pd.Series, threshold: float = -0.05) -> Optional[float]:
-    """
-    Average inverse recovery ratio for drawdowns deeper than threshold.
-    Higher = faster recovery = better.
-    """
-    if len(nav) < LB_1Y:
+def recovery_half_life(nav: pd.Series) -> Optional[float]:
+    """Weeks for fund to recover half of its worst observed drawdown."""
+    if nav is None or len(nav) < 20:
         return None
-
-    dd = nav / nav.cummax() - 1.0
-    in_drawdown = False
-    dd_start = 0
-    dd_trough = 0
-    dd_trough_val = 0.0
-    recovery_ratios: List[float] = []
-
-    for i in range(len(dd)):
-        val = float(dd.iloc[i])
-        if not in_drawdown and val < threshold:
-            in_drawdown = True
-            dd_start = i
-            dd_trough = i
-            dd_trough_val = val
-        elif in_drawdown:
-            if val < dd_trough_val:
-                dd_trough = i
-                dd_trough_val = val
-            if val >= 0:
-                time_to_trough = dd_trough - dd_start
-                time_to_recover = i - dd_trough
-                if time_to_trough > 0:
-                    recovery_ratios.append(time_to_recover / time_to_trough)
-                in_drawdown = False
-
-    if in_drawdown:
-        time_in_dd = len(dd) - 1 - dd_start
-        time_to_trough = max(dd_trough - dd_start, 1)
-        estimated_ratio = max(time_in_dd / time_to_trough, 2.0)
-        recovery_ratios.append(estimated_ratio)
-
-    if not recovery_ratios:
-        return None
-
-    avg_ratio = float(np.mean(recovery_ratios))
-    return float(1.0 / (avg_ratio + 0.1))
+    peak = nav.cummax()
+    dd = nav / peak - 1.0
+    trough_idx = int(dd.values.argmin())
+    if trough_idx == len(dd) - 1:
+        return None  # still in trough
+    trough_dd = float(dd.iloc[trough_idx])
+    if trough_dd >= -0.005:
+        return 1.0
+    target = trough_dd / 2.0
+    after = dd.iloc[trough_idx + 1:]
+    above = after[after >= target]
+    if above.empty:
+        return float(len(after))
+    rec_idx = above.index[0]
+    weeks = int(nav.index.get_loc(rec_idx)) - trough_idx
+    return float(max(1, weeks))
 
 
-def avg_drawdown_duration(nav: pd.Series, threshold: float = -0.03) -> Optional[float]:
-    """
-    Average number of weeks spent in drawdowns deeper than threshold.
-    Shorter durations suggest the fund recovers quickly from losses.
-    Returned as inverse so higher = better (shorter drawdowns).
-    """
-    if len(nav) < LB_1Y:
-        return None
-
-    dd = nav / nav.cummax() - 1.0
-    in_drawdown = False
-    dd_start = 0
-    durations: List[int] = []
-
-    for i in range(len(dd)):
-        val = float(dd.iloc[i])
-        if not in_drawdown and val < threshold:
-            in_drawdown = True
-            dd_start = i
-        elif in_drawdown and val >= 0:
-            durations.append(i - dd_start)
-            in_drawdown = False
-
-    if not durations:
-        return None
-
-    avg_dur = float(np.mean(durations))
-    return float(1.0 / (avg_dur + 1.0))
-
-
-# ===================================================================
-# Consistency & Stability Metrics
-# ===================================================================
-
-def rolling_benchmark_beat_pct(
-    fund_nav: pd.Series, bench_nav: pd.Series, window: int = LB_1Y
-) -> Optional[float]:
-    """Fraction of rolling window periods where fund beat benchmark."""
-    aligned = pd.concat(
-        [fund_nav.rename("fund"), bench_nav.rename("bench")], axis=1
-    ).dropna()
-    if len(aligned) < window + 10:
-        return None
-
-    fund_roll = aligned["fund"].pct_change(window)
-    bench_roll = aligned["bench"].pct_change(window)
-    common = fund_roll.dropna().index.intersection(bench_roll.dropna().index)
-    if len(common) < 10:
-        return None
-
-    wins = (fund_roll.loc[common] > bench_roll.loc[common]).sum()
-    return float(wins / len(common))
-
-
-def cross_horizon_rank_consistency(
-    fund_nav: pd.Series, bench_nav: pd.Series, peer_navs: Dict[str, pd.Series]
-) -> Optional[float]:
-    """
-    Measure how consistent a fund's peer-relative rank is across multiple
-    time horizons (3M, 6M, 1Y, 3Y). A fund that ranks well across all
-    horizons demonstrates reliable, non-fluky performance. Returns a
-    score in [0, 1] where 1 = perfectly consistent ranking.
-
-    This is a novel metric not commonly found in standard MF analysis.
-    It captures the idea that truly skilled funds perform well regardless
-    of the measurement window, while lucky streaks show up as inconsistency.
-    """
-    horizons = [LB_3M, LB_6M, LB_1Y, LB_3Y]
-    peer_ids = list(peer_navs.keys())
-    if len(peer_ids) < 5:
-        return None
-
-    fund_ranks: List[Optional[float]] = []
-    for h in horizons:
-        fund_ret = annualised_return(fund_nav, h)
-        if fund_ret is None:
-            fund_ranks.append(None)
-            continue
-
-        peer_rets = []
-        for pid in peer_ids:
-            pr = annualised_return(peer_navs[pid], h)
-            if pr is not None:
-                peer_rets.append(pr)
-
-        if len(peer_rets) < 5:
-            fund_ranks.append(None)
-            continue
-
-        n_better = sum(1 for pr in peer_rets if pr > fund_ret)
-        percentile = 1.0 - (n_better / len(peer_rets))
-        fund_ranks.append(percentile)
-
-    valid_ranks = [r for r in fund_ranks if r is not None]
-    if len(valid_ranks) < 3:
-        return None
-
-    arr = np.array(valid_ranks)
-    mean_rank = float(np.mean(arr))
-    std_rank = float(np.std(arr, ddof=1)) if len(arr) > 1 else 0.0
-
-    consistency = mean_rank * (1.0 / (1.0 + std_rank * 5.0))
-    return float(np.clip(consistency, 0, 1))
-
-
-def rolling_sortino_stability(
-    fund_nav: pd.Series, window: int = LB_1Y, step: int = ROLLING_STEP
-) -> Optional[float]:
-    """
-    Rolling Sortino ratio analysis. Returns a stability score that
-    combines mean Sortino level with low variance across windows.
-    Funds with consistently high Sortino across time are preferred.
-    """
-    rets = weekly_returns(fund_nav)
-    if len(rets) < window + 10:
-        return None
-
-    sortinos: List[float] = []
-    for start in range(0, len(rets) - window, step):
-        sub = rets.iloc[start:start + window]
-        dd = downside_deviation(sub)
-        nav_window = fund_nav.iloc[start:start + window + 1]
-        cagr = annualised_return(nav_window, window)
-        if cagr is not None:
-            s = sortino_ratio_calc(cagr, dd)
-            if s is not None:
-                sortinos.append(s)
-
-    if len(sortinos) < 3:
-        return None
-
-    mean_s = float(np.mean(sortinos))
-    std_s = float(np.std(sortinos, ddof=1))
-
-    return float(0.5 * np.clip(mean_s, -1, 3) + 0.5 / (1.0 + std_s))
-
-
-def excess_return_hit_rate(
-    fund_ret: pd.Series, bench_ret: pd.Series
-) -> Optional[float]:
-    """
-    Fraction of weeks where fund return exceeds benchmark return.
-    A hit rate significantly above 50% indicates consistent alpha.
-    """
-    aligned = pd.concat(
-        [fund_ret.rename("fund"), bench_ret.rename("bench")], axis=1
-    ).dropna()
-    if len(aligned) < 20:
-        return None
-    return float((aligned["fund"] > aligned["bench"]).mean())
-
-
-# ===================================================================
-# Momentum & Acceleration
-# ===================================================================
-
-def relative_momentum(
-    fund_nav: pd.Series, bench_nav: pd.Series, weeks: int
-) -> Optional[float]:
-    f = annualised_return(fund_nav, weeks)
-    b = annualised_return(bench_nav, weeks)
-    if f is None or b is None:
-        return None
-    return float(f - b)
-
-
-def vol_normalised_momentum(
-    fund_nav: pd.Series, bench_nav: pd.Series, weeks: int = LB_6M
-) -> Optional[float]:
-    """
-    Relative momentum normalised by the fund's recent volatility.
-    This penalises momentum that comes from high-vol bets (which are
-    less persistent) and rewards momentum earned with lower risk.
-    """
-    rel_mom = relative_momentum(fund_nav, bench_nav, weeks)
-    if rel_mom is None:
-        return None
-
-    rets = weekly_returns(fund_nav)
-    recent_rets = rets.tail(weeks)
-    if len(recent_rets) < 10:
-        return None
-
-    vol = annualised_volatility(recent_rets)
-    if pd.isna(vol) or vol <= 1e-12:
-        return None
-
-    return float(rel_mom / vol)
-
-
-def momentum_acceleration(
-    fund_nav: pd.Series, bench_nav: pd.Series
-) -> Optional[float]:
-    """
-    Change in relative momentum: compares 3M relative momentum to 6M
-    relative momentum. Positive acceleration means the fund is gaining
-    strength relative to benchmark — a forward-looking signal.
-    """
-    mom_3m = relative_momentum(fund_nav, bench_nav, LB_3M)
-    mom_6m = relative_momentum(fund_nav, bench_nav, LB_6M)
-    if mom_3m is None or mom_6m is None:
-        return None
-    return float(mom_3m - mom_6m)
-
-
-# ===================================================================
-# Novel Metrics: Current State & Path-Adjusted Momentum
-# ===================================================================
-
-def current_drawdown_depth(nav: pd.Series) -> Optional[float]:
-    """
-    Current distance from all-time high NAV.  Returns 0 when the fund
-    is at its peak, and negative values when below.  Less negative
-    (closer to 0) is better — the fund is near its highs.
-
-    This captures real-time fund health that purely historical metrics
-    miss: a fund sitting at -20% from peak right now faces different
-    forward dynamics than one at ATH, regardless of historical stats.
-    """
-    if len(nav) < 20:
+def current_drawdown(nav: pd.Series) -> Optional[float]:
+    if nav is None or len(nav) < 4:
         return None
     return float(nav.iloc[-1] / nav.cummax().iloc[-1] - 1.0)
 
 
-def drawdown_adjusted_momentum(
-    fund_nav: pd.Series, bench_nav: pd.Series
+def vol_drag_adjusted_return(rets: pd.Series) -> Optional[float]:
+    """
+    Geometric-style adjusted annualised return = arithmetic_mean - 0.5 * variance.
+    The (sigma^2)/2 drag matters for compounding over 24 months: two funds
+    with the same arithmetic mean but different volatility compound very
+    differently, and this metric captures it without needing a long
+    enough actual trailing window for the geometric mean to converge.
+    """
+    if rets is None or len(rets) < 26:
+        return None
+    arith = float(rets.mean() * WEEKS_PER_YEAR)
+    var_ann = float(rets.var(ddof=1) * WEEKS_PER_YEAR)
+    return float(arith - 0.5 * var_ann)
+
+
+# ===================================================================
+# 7. Active Conviction & Capacity (P4)
+# ===================================================================
+
+def active_divergence(fund_ret: pd.Series, bench_ret: pd.Series) -> Optional[float]:
+    """Annualised tracking error - activity proxy."""
+    aligned = pd.concat({"f": fund_ret, "b": bench_ret}, axis=1).dropna()
+    if len(aligned) < 20:
+        return None
+    excess = aligned["f"] - aligned["b"]
+    return float(excess.std(ddof=1) * np.sqrt(WEEKS_PER_YEAR))
+
+
+def active_skill_signal(
+    alpha: Optional[float], divergence: Optional[float]
 ) -> Optional[float]:
-    """
-    Relative momentum adjusted for path quality over the measurement
-    period.  Rewards momentum achieved through smooth, low-drawdown
-    paths and penalises momentum earned via volatile recovery-crash
-    cycles.
-
-    The intuition: 10% relative outperformance earned via a smooth
-    uptrend is far more likely to persist than 10% earned through a
-    sharp V-recovery.  The path quality multiplier (based on the
-    average drawdown during the momentum window) provides this
-    differentiation.
-    """
-    mom = relative_momentum(fund_nav, bench_nav, LB_6M)
-    if mom is None:
+    """alpha * tracking_error - rewards convicted active bets that work."""
+    if alpha is None or divergence is None:
         return None
+    return float(np.clip(alpha, -0.20, 0.30) * np.clip(divergence, 0.0, 0.40))
 
-    recent_nav = fund_nav.iloc[-(LB_6M + 1):]
-    if len(recent_nav) < 20:
+
+def cross_regime_beta_stability(
+    fund_ret: pd.Series, bench_ret: pd.Series, reg: pd.Series
+) -> Optional[float]:
+    """1 / (1 + std_of_per_regime_betas).  Higher = more predictable style."""
+    aligned = pd.concat({"f": fund_ret, "b": bench_ret, "r": reg}, axis=1).dropna()
+    if len(aligned) < 40:
         return None
+    betas: List[float] = []
+    for r in range(N_REGIMES):
+        sub = aligned[aligned["r"].astype(int) == r]
+        if len(sub) < 8:
+            continue
+        x = sub["b"].values
+        y = sub["f"].values
+        var_x = float(np.var(x, ddof=1))
+        if var_x < 1e-12:
+            continue
+        b = float(np.cov(x, y, ddof=1)[0, 1] / var_x)
+        betas.append(b)
+    if len(betas) < 2:
+        return None
+    sd = float(np.std(betas, ddof=1))
+    return float(1.0 / (1.0 + sd))
 
-    dd = recent_nav / recent_nav.cummax() - 1.0
-    avg_pain = abs(float(dd.mean()))
-    path_quality = 1.0 / (1.0 + avg_pain * 15)
 
-    return float(mom * path_quality)
+def aum_capacity_haircut(aum: Optional[float]) -> float:
+    """
+    Smooth piecewise multiplier in [0.85, 1.0] for AUM > 25,000 Cr.
+    Berk-Green (2004) style: large funds face capacity-driven alpha decay.
+    Below 25,000 Cr: full credit (1.0).
+    25,000 - 75,000 Cr: linear from 1.0 -> 0.92.
+    Above 75,000 Cr: floor at 0.85.
+    """
+    if aum is None or pd.isna(aum) or aum <= 0:
+        return 1.0
+    if aum < 25000:
+        return 1.0
+    if aum < 75000:
+        return float(1.0 - (aum - 25000) / 50000 * 0.08)
+    return 0.85
 
 
 # ===================================================================
-# Walk-Forward Validation
+# 8. Rolling 12M Alpha Consistency (P2)
 # ===================================================================
 
-def quick_score(fund_nav: pd.Series, bench_nav: pd.Series) -> Optional[float]:
-    """Lightweight scoring for walk-forward back-testing."""
-    fund_nav = fund_nav.dropna()
-    if len(fund_nav) < MIN_WEEKS_FOR_ANALYSIS:
+def _rolling_window_starts(
+    n_weeks_total: int, window_weeks: int, step_weeks: int = 4, max_windows: int = 60
+) -> List[int]:
+    """End-anchored window-end indices, most recent first."""
+    starts: List[int] = []
+    end = n_weeks_total - 1
+    while end - window_weeks >= 0 and len(starts) < max_windows:
+        starts.append(end)
+        end -= step_weeks
+    return starts
+
+
+def _alpha_in_window(
+    fund_ret: pd.Series, bench_ret: pd.Series
+) -> Optional[float]:
+    """Single annualised alpha for an aligned window."""
+    if len(fund_ret) < 20:
         return None
-
-    bench_nav = bench_nav.loc[bench_nav.index >= fund_nav.index[0]]
-    rets = weekly_returns(fund_nav)
-    bench_rets = weekly_returns(bench_nav)
-
-    if len(rets) < 20:
+    aligned = pd.concat({"f": fund_ret, "b": bench_ret}, axis=1).dropna()
+    if len(aligned) < 20:
         return None
-
-    weeks = min(LB_1Y, len(fund_nav) - 1)
-    cagr = annualised_return(fund_nav, weeks)
-    dd = downside_deviation(rets)
-    alpha, _ = compute_alpha_beta(rets, bench_rets)
-    ir = information_ratio(rets, bench_rets)
-    sortino = sortino_ratio_calc(cagr, dd)
-    gp = gain_to_pain_ratio(rets)
-    _, down_cap = capture_ratios(rets, bench_rets)
-
-    score = 0.0
-    total_w = 0.0
-
-    def add(val: Optional[float], w: float) -> None:
-        nonlocal score, total_w
-        if val is not None and not pd.isna(val) and np.isfinite(val):
-            score += val * w
-            total_w += w
-
-    add(alpha, 3.0)
-    add(sortino, 1.5)
-    add(ir, 1.5)
-    add(gp, 1.0)
-    if down_cap is not None and not pd.isna(down_cap):
-        add(-down_cap, 1.0)
-
-    return score / total_w if total_w > 0 else None
+    x = aligned["b"].values
+    y = aligned["f"].values
+    var_x = float(np.var(x, ddof=1))
+    if var_x < 1e-12:
+        return None
+    rf_w = (1 + RISK_FREE_RATE) ** (1 / WEEKS_PER_YEAR) - 1
+    beta = float(np.cov(x, y, ddof=1)[0, 1] / var_x)
+    alpha_w = float(np.mean(y) - rf_w - beta * (np.mean(x) - rf_w))
+    return float(alpha_w * WEEKS_PER_YEAR)
 
 
-def walk_forward_validation(
+def rolling_12m_alphas(
+    fund_nav: pd.Series, bench_nav: pd.Series,
+    step_weeks: int = 4, max_windows: int = 30,
+) -> List[Tuple[int, float]]:
+    """
+    Returns list of (window_end_idx, alpha) for non-overlapping or
+    step-spaced trailing 12M windows, most recent first.
+    """
+    if len(fund_nav) < LB_1Y + 4:
+        return []
+    bench_w_full = weekly_returns(bench_nav)
+    out: List[Tuple[int, float]] = []
+    for end_idx in _rolling_window_starts(len(fund_nav), LB_1Y, step_weeks, max_windows):
+        sub = fund_nav.iloc[end_idx - LB_1Y: end_idx + 1]
+        fr = weekly_returns(sub)
+        br = bench_w_full.reindex(fr.index).dropna()
+        fr2 = fr.reindex(br.index).dropna()
+        a = _alpha_in_window(fr2, br)
+        if a is not None and -1.0 < a < 1.0:
+            out.append((end_idx, a))
+    return out
+
+
+# ===================================================================
+# 9. Walk-forward IC (24M horizon)
+# ===================================================================
+
+def walk_forward_ic_24m(
     aligned_navs: Dict[str, pd.Series],
     bench_nav: pd.Series,
-    train_weeks: int = LB_3Y,
-    test_weeks: int = LB_1Y,
-    step_weeks: int = LB_6M,
-) -> pd.DataFrame:
+    eval_step: int = LB_3M,
+    n_evals: int = 6,
+) -> Optional[float]:
     """
-    Score funds using trailing data, then measure actual forward 1Y
-    excess returns. Reports Spearman rank correlation and top-5 portfolio
-    performance per period.
+    Spearman rank-corr of (trailing 24M hybrid SIP-Hold XIRR) vs (forward
+    24M hybrid SIP-Hold XIRR), averaged across `n_evals` historical eval
+    points.  This is the hypothesis test: do consistency-style metrics
+    actually predict 24M-forward outcomes better than alpha did at 1Y?
     """
-    records: List[dict] = []
     n = len(bench_nav)
-
-    for eval_idx in range(train_weeks, n - test_weeks, step_weeks):
-        scores: Dict[str, float] = {}
-        forward_returns: Dict[str, float] = {}
-
-        for mf_id, aligned_nav in aligned_navs.items():
-            nav_train = aligned_nav.iloc[:eval_idx + 1].dropna()
-            if len(nav_train) < MIN_WEEKS_FOR_ANALYSIS:
+    if n < HYBRID_HORIZON_WEEKS * 2 + 4:
+        return None
+    last_eval = n - HYBRID_HORIZON_WEEKS - 1
+    first_eval = max(HYBRID_HORIZON_WEEKS, last_eval - eval_step * (n_evals - 1))
+    eval_points = list(range(first_eval, last_eval + 1, eval_step))
+    if not eval_points:
+        return None
+    timestamps = bench_nav.index
+    ics: List[float] = []
+    for ep in eval_points[-n_evals:]:
+        ep_ts = timestamps[ep]
+        fwd_ts = timestamps[min(ep + HYBRID_HORIZON_WEEKS, n - 1)]
+        past_xirrs: Dict[str, float] = {}
+        fwd_xirrs: Dict[str, float] = {}
+        for fid, fnav in aligned_navs.items():
+            past_n = fnav.loc[fnav.index <= ep_ts].dropna()
+            if len(past_n) < HYBRID_HORIZON_WEEKS + 4:
                 continue
+            past_start = past_n.index[-(HYBRID_HORIZON_WEEKS + 1)]
+            past_sip_end = past_n.index[-(HYBRID_HORIZON_WEEKS // 2 + 1)]
+            x_past = hybrid_sip_xirr_for_window(past_n, past_start, past_sip_end, ep_ts)
+            if x_past is None:
+                continue
+            past_xirrs[fid] = x_past
 
-            bench_train = bench_nav.iloc[:eval_idx + 1]
-            s = quick_score(nav_train, bench_train)
-            if s is not None:
-                scores[mf_id] = s
+            fwd_n = fnav.loc[(fnav.index > ep_ts) & (fnav.index <= fwd_ts)].dropna()
+            if len(fwd_n) < HYBRID_HORIZON_WEEKS - 4:
+                continue
+            f_start = fwd_n.index[0]
+            mid_idx = len(fwd_n) // 2
+            f_sip_end = fwd_n.index[mid_idx]
+            x_fwd = hybrid_sip_xirr_for_window(fwd_n, f_start, f_sip_end, fwd_ts)
+            if x_fwd is None:
+                continue
+            fwd_xirrs[fid] = x_fwd
 
-            fwd_start = aligned_nav.iloc[eval_idx]
-            fwd_end = aligned_nav.iloc[eval_idx + test_weeks]
-            if (
-                pd.notna(fwd_start)
-                and pd.notna(fwd_end)
-                and fwd_start > 0
-            ):
-                fwd_ret = fwd_end / fwd_start - 1
-                b_start = bench_nav.iloc[eval_idx]
-                b_end = bench_nav.iloc[eval_idx + test_weeks]
-                if b_start > 0:
-                    b_ret = b_end / b_start - 1
-                    forward_returns[mf_id] = fwd_ret - b_ret
-
-        common = sorted(set(scores) & set(forward_returns))
+        common = sorted(set(past_xirrs) & set(fwd_xirrs))
         if len(common) < 8:
             continue
-
-        s_arr = np.array([scores[k] for k in common])
-        r_arr = np.array([forward_returns[k] for k in common])
-
-        if np.std(s_arr) > 1e-12 and np.std(r_arr) > 1e-12:
-            corr = float(
-                pd.Series(s_arr).corr(pd.Series(r_arr), method="spearman")
-            )
-            top_k = min(5, len(common))
-            top_idx = np.argsort(s_arr)[-top_k:]
-
-            records.append({
-                "eval_date": bench_nav.index[eval_idx].date(),
-                "n_funds": len(common),
-                "rank_correlation": corr,
-                "top5_excess_return": float(np.mean(r_arr[top_idx])),
-                "hit_rate": float(np.mean(r_arr[top_idx] > 0)),
-            })
-
-    return pd.DataFrame(records)
+        p = pd.Series([past_xirrs[k] for k in common])
+        f = pd.Series([fwd_xirrs[k] for k in common])
+        if p.std() < 1e-9 or f.std() < 1e-9:
+            continue
+        ic = float(p.corr(f, method="spearman"))
+        if not np.isnan(ic):
+            ics.append(ic)
+    if not ics:
+        return None
+    return float(np.mean(ics))
 
 
 # ===================================================================
-# Scoring Components & Composite
+# 10. Per-fund metric computation (raw - peer-relative metrics computed later)
 # ===================================================================
 
-SCORE_COMPONENTS = {
-    # --- Skill & Alpha Quality (25%) ---
-    "alpha":                    (True,  0.07),
-    "info_ratio":               (True,  0.05),
-    "tm_alpha":                 (True,  0.04),
-    "excess_autocorr":          (True,  0.04),
-    "active_divergence_score":  (True,  0.05),
-
-    # --- Path Quality & Tail Risk (16%) ---
-    "gain_to_pain":             (True,  0.05),
-    "tail_ratio":               (True,  0.03),
-    "cvar":                     (True,  0.03),
-    "ulcer_perf_index":         (True,  0.03),
-    "calmar":                   (True,  0.02),
-
-    # --- Drawdown Resilience (14%) ---
-    # NOTE: max_drawdown & pain_index are NEGATIVE values (less negative = better)
-    # so higher_is_better=True is correct for them.
-    "max_drawdown":             (True,  0.04),
-    "pain_index":               (True,  0.03),
-    "recovery_speed":           (True,  0.03),
-    "avg_dd_duration":          (True,  0.02),
-    "current_drawdown":         (True,  0.02),
-
-    # --- Regime Adaptability (14%) ---
-    "capture_spread":           (True,  0.03),
-    "transition_alpha":         (True,  0.03),
-    "beta_asymmetry":           (True,  0.02),
-    "bear_outperformance":      (True,  0.02),
-    "tm_gamma":                 (True,  0.04),
-
-    # --- Consistency & Stability (13%) ---
-    "rolling_1y_beat_pct":      (True,  0.04),
-    "cross_horizon_consistency":(True,  0.03),
-    "sortino_stability":        (True,  0.03),
-    "hit_rate":                 (True,  0.03),
-
-    # --- Momentum & Acceleration (13%) ---
-    "momentum_6m":              (True,  0.04),
-    "vol_norm_momentum":        (True,  0.04),
-    "acceleration":             (True,  0.03),
-    "dd_adj_momentum":          (True,  0.02),
-
-    # --- Distribution Quality (5%) ---
-    "skewness":                 (True,  0.03),
-    "kurtosis":                 (False, 0.02),
-}
-
-
-def analyse_fund(
+def compute_fund_metrics(
     mf_id: str,
     fund_nav: pd.Series,
     bench_nav: pd.Series,
+    bench_ret: pd.Series,
+    reg: pd.Series,
     name: str,
     aum: float,
     subsector: str,
-    peer_navs: Dict[str, pd.Series],
 ) -> dict:
-    """Compute all metrics for a single fund."""
-
-    n_weeks = len(fund_nav)
-    result: dict = {
+    out: dict = {
         "mfId": mf_id,
         "name": name,
-        "aum": round(aum, 2),
         "subsector": subsector,
+        "aum": round(aum, 2) if aum is not None else None,
     }
+    if fund_nav is None or len(fund_nav) == 0:
+        out.update({"data_days": 0, "data_weeks": 0})
+        return out
 
     first_ts = fund_nav.index.min()
     last_ts = fund_nav.index.max()
-    result["data_days"] = (
-        int((last_ts - first_ts).days) + 1 if pd.notna(first_ts) else 0
-    )
-    result["data_weeks"] = n_weeks
-    result["has_5y"] = n_weeks >= MIN_WEEKS_5Y
-    result["has_3y"] = n_weeks >= MIN_WEEKS_3Y
+    out["data_days"] = int((last_ts - first_ts).days) + 1 if pd.notna(first_ts) else 0
+    out["data_weeks"] = int(len(fund_nav))
 
-    # ---- CAGR across horizons ----
-    result["cagr_1y"] = annualised_return(fund_nav, LB_1Y)
-    result["cagr_3y"] = annualised_return(fund_nav, LB_3Y)
-    result["cagr_5y"] = annualised_return(fund_nav, LB_5Y)
+    out["cagr_1y"] = annualised_return(fund_nav, LB_1Y)
+    out["cagr_3y"] = annualised_return(fund_nav, LB_3Y)
+    out["cagr_5y"] = annualised_return(fund_nav, LB_5Y)
 
-    primary_cagr = (
-        result["cagr_3y"] if result["cagr_3y"] is not None
-        else result["cagr_5y"] if result["cagr_5y"] is not None
-        else result["cagr_1y"]
-    )
+    if out["data_weeks"] < MIN_WEEKS_FOR_ANALYSIS:
+        return out
 
-    # ---- Returns & Volatility ----
     rets = weekly_returns(fund_nav)
-    if len(rets) < 20:
-        logger.warning(f"{mf_id}: insufficient data ({len(rets)} weeks)")
-        return result
 
+    # Standard ratios
+    primary_cagr = out["cagr_3y"] or out["cagr_5y"] or out["cagr_1y"]
     vol = annualised_volatility(rets)
-    dd = downside_deviation(rets)
-    result["volatility"] = vol
-    result["downside_dev"] = dd
-
-    # ---- Standard Ratios ----
-    result["sharpe"] = sharpe_ratio(primary_cagr, vol)
-    result["sortino"] = sortino_ratio_calc(primary_cagr, dd)
-    result["calmar"] = calmar_ratio_calc(primary_cagr, max_drawdown_calc(fund_nav))
-
-    # ---- Benchmark-Relative ----
-    bench_rets = weekly_returns(bench_nav)
-    alpha, beta = compute_alpha_beta(rets, bench_rets)
-    result["alpha"] = alpha
-    result["beta"] = beta
-    result["info_ratio"] = information_ratio(rets, bench_rets)
-
-    tm_a, tm_g = treynor_mazuy_decomposition(rets, bench_rets)
-    result["tm_alpha"] = tm_a
-    result["tm_gamma"] = tm_g
-
-    result["active_divergence"] = active_divergence(rets, bench_rets)
-    ad = result["active_divergence"]
-    if ad is not None and alpha is not None:
-        result["active_divergence_score"] = float(
-            np.clip(alpha, -0.2, 0.2) * np.clip(ad, 0, 0.3)
-        )
-    else:
-        result["active_divergence_score"] = None
-
-    # ---- Novel: Path Quality & Tail Risk ----
-    result["gain_to_pain"] = gain_to_pain_ratio(rets)
-    result["tail_ratio"] = tail_ratio(rets)
-    result["cvar"] = conditional_value_at_risk(rets)
-
-    mdd = max_drawdown_calc(fund_nav)
-    result["max_drawdown"] = mdd
-    ui = ulcer_index(fund_nav)
-    result["ulcer_index"] = ui
-    result["ulcer_perf_index"] = ulcer_performance_index(primary_cagr, ui)
-
-    # ---- Novel: Excess Return Autocorrelation ----
-    result["excess_autocorr"] = excess_return_autocorrelation(rets, bench_rets)
-
-    # ---- Drawdown Resilience ----
-    result["pain_index"] = pain_index(fund_nav)
-    result["recovery_speed"] = recovery_speed_score(fund_nav)
-    result["avg_dd_duration"] = avg_drawdown_duration(fund_nav)
-
-    # ---- Regime Adaptability ----
-    up_cap, down_cap = capture_ratios(rets, bench_rets)
-    result["up_capture"] = up_cap
-    result["down_capture"] = down_cap
-    result["capture_spread"] = (
-        up_cap - down_cap
-        if up_cap is not None and down_cap is not None
+    out["volatility"] = vol
+    out["sharpe"] = (
+        (primary_cagr - RISK_FREE_RATE) / vol
+        if primary_cagr is not None and vol is not None and vol > 1e-9
         else None
     )
 
-    up_b, down_b = dual_beta(rets, bench_rets)
-    result["up_beta"] = up_b
-    result["down_beta"] = down_b
-    result["beta_asymmetry"] = (
-        up_b - down_b if up_b is not None and down_b is not None else None
-    )
+    # Alpha/beta and IR
+    alpha, beta = alpha_beta(rets, bench_ret)
+    out["alpha"] = alpha
+    out["beta"] = beta
+    out["info_ratio"] = information_ratio(rets, bench_ret)
 
-    result["transition_alpha"] = regime_transition_alpha(fund_nav, bench_nav)
-    result["bear_outperformance"] = bear_market_outperformance(fund_nav, bench_nav)
+    # P3 - per-regime alpha (raw) + capture + bear excess
+    pra, n_obs = per_regime_alpha(rets, bench_ret, reg)
+    out["_per_regime_alpha"] = pra
+    out["_per_regime_nobs"] = n_obs
+    out["regime_capture_spread"] = regime_capture_spread(rets, bench_ret, reg)
+    out["bear_correction_excess"] = bear_correction_outperformance(rets, bench_ret, reg)
+    out["recovery_half_life"] = recovery_half_life(fund_nav)
 
-    # ---- Consistency & Stability ----
-    result["rolling_1y_beat_pct"] = rolling_benchmark_beat_pct(fund_nav, bench_nav)
-    result["cross_horizon_consistency"] = cross_horizon_rank_consistency(
-        fund_nav, bench_nav, peer_navs
-    )
-    result["sortino_stability"] = rolling_sortino_stability(fund_nav)
-    result["hit_rate"] = excess_return_hit_rate(rets, bench_rets)
-
-    # ---- Momentum & Acceleration ----
-    result["momentum_6m"] = relative_momentum(fund_nav, bench_nav, LB_6M)
-    result["momentum_12m"] = relative_momentum(fund_nav, bench_nav, LB_1Y)
-    result["vol_norm_momentum"] = vol_normalised_momentum(fund_nav, bench_nav)
-    result["acceleration"] = momentum_acceleration(fund_nav, bench_nav)
-    result["dd_adj_momentum"] = drawdown_adjusted_momentum(fund_nav, bench_nav)
-
-    # ---- Current State ----
-    result["current_drawdown"] = current_drawdown_depth(fund_nav)
-
-    # ---- Distribution Quality ----
-    if len(rets) >= 30:
-        result["skewness"] = float(rets.skew())
-        result["kurtosis"] = float(rets.kurtosis())
+    # P2 - 12M block alphas (Bayesian shrinkage input) + rolling 12M alphas
+    blk = block_alphas(rets, bench_ret, block_weeks=LB_1Y, max_blocks=5)
+    out["_block_alphas"] = blk
+    out["block_alpha_n"] = int(len(blk))
+    rolling_12m = rolling_12m_alphas(fund_nav, bench_nav)
+    out["_rolling_12m_alphas"] = rolling_12m
+    if len(rolling_12m) >= 3:
+        alphas_only = np.array([a for _, a in rolling_12m])
+        out["alpha_pos_frac_12m"] = float(np.mean(alphas_only > 0))
+        out["rolling_12m_n"] = int(len(rolling_12m))
     else:
-        result["skewness"] = None
-        result["kurtosis"] = None
+        out["alpha_pos_frac_12m"] = None
+        out["rolling_12m_n"] = int(len(rolling_12m))
 
-    return result
+    # P1 - rolling hybrid SIP-Hold XIRRs
+    sip_x = rolling_hybrid_sip_xirrs(fund_nav)
+    out["_rolling_hybrid_xirrs"] = sip_x
+    out["hybrid_xirr_n"] = int(len(sip_x))
+    if len(sip_x) >= 4:
+        arr = np.array([x for _, x in sip_x])
+        out["hybrid_xirr_p50"] = float(np.median(arr))
+        out["hybrid_xirr_p25"] = float(np.percentile(arr, 25))
+        out["hybrid_xirr_recent"] = float(np.mean(arr[: min(3, len(arr))]))
+    else:
+        out["hybrid_xirr_p50"] = None
+        out["hybrid_xirr_p25"] = None
+        out["hybrid_xirr_recent"] = None
+
+    # P5 - Path quality
+    out["max_drawdown"] = max_drawdown_calc(fund_nav)
+    out["ulcer_index"] = ulcer_index(fund_nav)
+    out["ulcer_perf_index"] = ulcer_perf_index(primary_cagr, out["ulcer_index"])
+    out["gain_to_pain"] = gain_to_pain_ratio(rets)
+    out["tail_ratio"] = tail_ratio(rets)
+    out["current_drawdown"] = current_drawdown(fund_nav)
+    out["vol_drag_adj_return"] = vol_drag_adjusted_return(rets)
+
+    # P4 - Active conviction
+    out["active_divergence"] = active_divergence(rets, bench_ret)
+    out["active_skill_signal"] = active_skill_signal(alpha, out["active_divergence"])
+    out["beta_stability"] = cross_regime_beta_stability(rets, bench_ret, reg)
+    out["aum_capacity_mult"] = aum_capacity_haircut(aum)
+
+    return out
 
 
-def percentile_rank(
-    series: pd.Series, higher_is_better: bool = True
-) -> pd.Series:
-    ranked = series.rank(pct=True, na_option="keep")
-    if not higher_is_better:
-        ranked = 1 - ranked
-    return ranked * 100
+# ===================================================================
+# 11. Cross-sectional fills: peer-median XIRRs and peer-median 12M alphas
+# ===================================================================
+
+def compute_peer_median_xirrs(
+    aligned_navs: Dict[str, pd.Series], all_window_starts: List[pd.Timestamp]
+) -> Dict[pd.Timestamp, float]:
+    """Cross-sectional median hybrid XIRR per window-start across all funds."""
+    by_start: Dict[pd.Timestamp, List[float]] = {}
+    for fid, nav in aligned_navs.items():
+        windows = rolling_hybrid_sip_xirrs(nav)
+        for start_ts, x in windows:
+            by_start.setdefault(start_ts, []).append(x)
+    return {ts: float(np.median(v)) for ts, v in by_start.items() if len(v) >= 5}
 
 
-def compute_composite_score(df: pd.DataFrame) -> pd.DataFrame:
-    """Percentile-rank each metric, apply weights, penalise short histories."""
+def compute_peer_median_12m_alphas(
+    aligned_navs: Dict[str, pd.Series], bench_nav: pd.Series
+) -> Dict[int, float]:
+    """Cross-sectional median 12M alpha per window-end-index across all funds."""
+    by_end: Dict[int, List[float]] = {}
+    for fid, nav in aligned_navs.items():
+        windows = rolling_12m_alphas(nav, bench_nav)
+        for end_idx, a in windows:
+            by_end.setdefault(end_idx, []).append(a)
+    return {idx: float(np.median(v)) for idx, v in by_end.items() if len(v) >= 5}
 
-    total_weight = sum(w for _, w in SCORE_COMPONENTS.values())
-    assert abs(total_weight - 1.0) < 1e-6, (
-        f"Weights sum to {total_weight}, expected 1.0"
-    )
 
-    df = df.copy()
-    df["raw_score"] = 0.0
-    applied_weight = pd.Series(0.0, index=df.index)
-
-    for col, (higher_better, weight) in SCORE_COMPONENTS.items():
-        if col not in df.columns:
-            logger.warning(f"Scoring column '{col}' not found — skipping")
+def fund_hit_rate_vs_peer_xirr(
+    fund_windows: List[Tuple[pd.Timestamp, float]],
+    peer_median: Dict[pd.Timestamp, float],
+) -> Optional[float]:
+    if not fund_windows:
+        return None
+    hits = 0
+    n = 0
+    for ts, x in fund_windows:
+        pm = peer_median.get(ts)
+        if pm is None:
             continue
-        pctl = percentile_rank(df[col], higher_is_better=higher_better)
-        mask = pctl.notna()
-        df.loc[mask, "raw_score"] += (pctl * weight)[mask]
-        applied_weight[mask] += weight
+        n += 1
+        if x > pm:
+            hits += 1
+    return float(hits / n) if n > 0 else None
 
-    df["score"] = np.where(
-        applied_weight > 0,
-        df["raw_score"] / applied_weight,
-        0,
+
+def fund_hit_rate_vs_peer_alpha(
+    fund_alphas: List[Tuple[int, float]],
+    peer_median_alpha: Dict[int, float],
+) -> Optional[float]:
+    if not fund_alphas:
+        return None
+    hits = 0
+    n = 0
+    for idx, a in fund_alphas:
+        pm = peer_median_alpha.get(idx)
+        if pm is None:
+            continue
+        n += 1
+        if a > pm:
+            hits += 1
+    return float(hits / n) if n > 0 else None
+
+
+def benchmark_hybrid_xirrs(bench_nav: pd.Series) -> Dict[pd.Timestamp, float]:
+    """Compute the Nifty-500 hybrid XIRR per window-start."""
+    windows = rolling_hybrid_sip_xirrs(bench_nav)
+    return {ts: x for ts, x in windows}
+
+
+def fund_hit_rate_vs_benchmark(
+    fund_windows: List[Tuple[pd.Timestamp, float]],
+    bench_windows: Dict[pd.Timestamp, float],
+) -> Optional[float]:
+    if not fund_windows:
+        return None
+    hits = 0
+    n = 0
+    for ts, x in fund_windows:
+        b = bench_windows.get(ts)
+        if b is None:
+            # nearest
+            keys = list(bench_windows.keys())
+            if not keys:
+                continue
+            nearest = min(keys, key=lambda k: abs((k - ts).days))
+            if abs((nearest - ts).days) > 21:
+                continue
+            b = bench_windows[nearest]
+        n += 1
+        if x > b:
+            hits += 1
+    return float(hits / n) if n > 0 else None
+
+
+# ===================================================================
+# 12. Pillar Scoring & Composite
+# ===================================================================
+
+def percentile_rank(s: pd.Series, higher_better: bool = True) -> pd.Series:
+    if higher_better:
+        ranks = s.rank(method="average", pct=True, na_option="keep")
+    else:
+        ranks = (-s).rank(method="average", pct=True, na_option="keep")
+    return ranks * 100.0
+
+
+def confidence_haircut(data_weeks: int) -> float:
+    if data_weeks < LB_1Y:
+        return 0.55
+    if data_weeks < LB_2Y:
+        return 0.75
+    if data_weeks < LB_3Y:
+        return 0.88
+    if data_weeks < LB_5Y:
+        return 0.97
+    return 1.00
+
+
+def assemble_p1_score(df: pd.DataFrame) -> pd.Series:
+    """Hybrid SIP-Hold outcome composite (0..100)."""
+    s_med  = percentile_rank(df["hybrid_xirr_p50"], higher_better=True)
+    s_dn   = percentile_rank(df["hybrid_xirr_p25"], higher_better=True)
+    s_rc   = percentile_rank(df["hybrid_xirr_recent"], higher_better=True)
+    s_hb   = percentile_rank(df["hybrid_xirr_hit_bench"], higher_better=True)
+    s_hp   = percentile_rank(df["hybrid_xirr_hit_peer"], higher_better=True)
+    return (
+        0.30 * s_med + 0.20 * s_dn + 0.15 * s_rc
+        + 0.20 * s_hb + 0.15 * s_hp
+    ).fillna(0.0)
+
+
+def assemble_p2_score(df: pd.DataFrame) -> pd.Series:
+    """Year-1 skill consistency over 12M windows."""
+    s_pos  = percentile_rank(df["alpha_pos_frac_12m"], higher_better=True)
+    s_peer = percentile_rank(df["alpha_beat_peer_frac_12m"], higher_better=True)
+    s_bayes = percentile_rank(df["bayes_shrunk_alpha"], higher_better=True)
+    s_ir   = percentile_rank(df["info_ratio"], higher_better=True)
+    return (
+        0.30 * s_pos + 0.30 * s_peer
+        + 0.25 * s_bayes + 0.15 * s_ir
+    ).fillna(0.0)
+
+
+def assemble_p3_score(df: pd.DataFrame) -> pd.Series:
+    """Year-2 hold resilience."""
+    s_fwd = percentile_rank(df["forward_alpha_24m"], higher_better=True)
+    s_cap = percentile_rank(df["regime_capture_spread"], higher_better=True)
+    s_bce = percentile_rank(df["bear_correction_excess"], higher_better=True)
+    s_rec = percentile_rank(df["recovery_half_life"], higher_better=False)  # smaller = faster
+    s_curdd = percentile_rank(df["current_drawdown"], higher_better=True)   # closer to 0 = ok
+    return (
+        0.30 * s_fwd + 0.20 * s_cap + 0.15 * s_bce
+        + 0.25 * s_rec + 0.10 * s_curdd
+    ).fillna(0.0)
+
+
+def assemble_p4_score(df: pd.DataFrame) -> pd.Series:
+    """Active conviction & capacity."""
+    s_act  = percentile_rank(df["active_skill_signal"], higher_better=True)
+    s_beta = percentile_rank(df["beta_stability"], higher_better=True)
+    # AUM-capacity multiplier scaled to 0..100; 1.0 = 100, 0.85 = 0
+    cap_score = ((df["aum_capacity_mult"].fillna(1.0) - 0.85) / 0.15) * 100.0
+    cap_score = cap_score.clip(lower=0.0, upper=100.0)
+    return (0.45 * s_act + 0.35 * s_beta + 0.20 * cap_score).fillna(0.0)
+
+
+def assemble_p5_score(df: pd.DataFrame) -> pd.Series:
+    """Compounding path quality."""
+    s_g2p  = percentile_rank(df["gain_to_pain"], higher_better=True)
+    s_tail = percentile_rank(df["tail_ratio"], higher_better=True)
+    s_upi  = percentile_rank(df["ulcer_perf_index"], higher_better=True)
+    s_vd   = percentile_rank(df["vol_drag_adj_return"], higher_better=True)
+    s_curdd = percentile_rank(df["current_drawdown"], higher_better=True)
+    return (
+        0.20 * s_g2p + 0.15 * s_tail + 0.20 * s_upi
+        + 0.30 * s_vd + 0.15 * s_curdd
+    ).fillna(0.0)
+
+
+def composite_score(df: pd.DataFrame) -> pd.Series:
+    raw = (
+        PILLAR_WEIGHTS["p1_hybrid_sip_hold"]    * df["p1_score"]
+        + PILLAR_WEIGHTS["p2_skill_consistency"]  * df["p2_score"]
+        + PILLAR_WEIGHTS["p3_hold_resilience"]    * df["p3_score"]
+        + PILLAR_WEIGHTS["p4_conviction_capac"]   * df["p4_score"]
+        + PILLAR_WEIGHTS["p5_compounding_path"]   * df["p5_score"]
     )
-
-    def _confidence(days: int) -> float:
-        if days < 365:
-            return 0.55
-        if days < 2 * 365:
-            return 0.72
-        if days < 3 * 365:
-            return 0.85
-        if days < 5 * 365:
-            return 0.95
-        return 1.00
-
-    df["confidence"] = df["data_days"].apply(_confidence)
-    df["score"] = (df["score"] * df["confidence"]).round(2)
-    return df
+    return raw * df["confidence"]
 
 
 # ===================================================================
-# Output Formatters
+# 13. Main pipeline
 # ===================================================================
 
-def _pct(v: object) -> str:
-    return f"{float(v) * 100:.2f}" if v is not None and pd.notna(v) else ""
-
-
-def _ratio(v: object) -> str:
-    return f"{float(v):.3f}" if v is not None and pd.notna(v) else ""
-
-
-def _num(v: object) -> str:
-    return f"{float(v):.2f}" if v is not None and pd.notna(v) else ""
-
-
-# ===================================================================
-# Main
-# ===================================================================
-
-def main(date: Optional[str] = None) -> None:
-    print("\n" + "=" * 84)
-    print("  TOTAL MARKET MUTUAL FUND SCORING ALGORITHM — CLAUDE")
-    print(f"  Benchmark : Nifty 500 ({BENCHMARK_INDEX})")
-    print("  Subsectors: " + ", ".join(SUBSECTORS))
-    print("  Model     : Adaptive multi-horizon conviction + path quality")
-    print("=" * 84)
-
-    provider = MfDataProvider(date=date)
-
-    # --- Benchmark ---
-    logger.info("Loading benchmark index data...")
-    bench_df = provider.get_index_chart(BENCHMARK_INDEX)
-    bench_nav = clean_nav_to_series(bench_df)
-    print(
-        f"\n  Benchmark data : {len(bench_nav)} weeks  "
-        f"({bench_nav.index.min().date()} → {bench_nav.index.max().date()})"
-    )
-
-    # --- Fund list ---
+def load_universe(provider: MfDataProvider) -> pd.DataFrame:
     df_all = provider.list_all_mf()
-    sector_df = df_all[df_all["subsector"].isin(SUBSECTORS)].copy()
-    print(f"  Total Market funds: {len(sector_df)}")
-    for sub in SUBSECTORS:
-        n = (sector_df["subsector"] == sub).sum()
-        print(f"    {sub:20s}: {n}")
+    target = df_all[
+        (df_all["sector"] == SECTOR_NAME)
+        & (df_all["subsector"].isin(SUBSECTORS))
+    ].copy()
+    target = target.dropna(subset=["mfId", "name", "subsector"]).reset_index(drop=True)
+    logger.info(
+        f"Universe: {len(target)} funds across {target['subsector'].nunique()} subsectors"
+    )
+    return target
 
-    # --- Pre-load all fund NAVs for cross-horizon consistency ---
-    logger.info("Loading all fund NAV data...")
-    fund_navs: Dict[str, pd.Series] = {}
-    fund_meta: Dict[str, dict] = {}
 
-    for _, row in sector_df.iterrows():
+def load_aligned_navs(
+    provider: MfDataProvider,
+    funds: pd.DataFrame,
+    bench_nav: pd.Series,
+) -> Dict[str, pd.Series]:
+    aligned: Dict[str, pd.Series] = {}
+    for _, row in funds.iterrows():
         mf_id = row["mfId"]
-        name = row["name"]
-        aum = float(row.get("aum", 0) or 0)
-        subsector = row["subsector"]
-
         try:
             chart = provider.get_mf_chart(mf_id)
-            if len(chart) < 20:
-                logger.warning(
-                    f"Skipping {mf_id} ({name}): only {len(chart)} points"
-                )
-                continue
+        except Exception as exc:
+            logger.warning(f"{mf_id}: failed to load chart ({exc})")
+            continue
+        nav = clean_nav_to_series(chart)
+        if len(nav) == 0:
+            continue
+        nav = align_to_index(nav, bench_nav.index).dropna()
+        if len(nav) == 0:
+            continue
+        aligned[mf_id] = nav
+    logger.info(f"Loaded NAVs for {len(aligned)} funds")
+    return aligned
 
-            fund_nav = clean_nav_to_series(chart)
-            if len(fund_nav) < 20:
-                continue
 
-            fund_navs[mf_id] = fund_nav
-            fund_meta[mf_id] = {
-                "name": name,
-                "aum": aum,
-                "subsector": subsector,
-            }
-        except Exception as e:
-            logger.error(f"Error loading {mf_id} ({name}): {e}")
+def run(force_refresh: bool = False) -> None:
+    provider = MfDataProvider()
+    if force_refresh:
+        provider.fetch_all_data()
 
-    logger.info(f"Loaded NAV data for {len(fund_navs)} funds")
+    # 1. Load universe
+    funds_df = load_universe(provider)
 
-    # --- Analyse each fund ---
-    logger.info("Analysing individual funds...")
-    results: List[dict] = []
-    aligned_navs: Dict[str, pd.Series] = {}
-
-    for mf_id, fund_nav in fund_navs.items():
-        meta = fund_meta[mf_id]
-        try:
-            peer_navs = {k: v for k, v in fund_navs.items() if k != mf_id}
-
-            metrics = analyse_fund(
-                mf_id=mf_id,
-                fund_nav=fund_nav,
-                bench_nav=bench_nav,
-                name=meta["name"],
-                aum=meta["aum"],
-                subsector=meta["subsector"],
-                peer_navs=peer_navs,
-            )
-            results.append(metrics)
-            aligned_navs[mf_id] = fund_nav.reindex(bench_nav.index).ffill()
-
-        except Exception as e:
-            logger.error(f"Error analysing {mf_id} ({meta['name']}): {e}")
-
-    if not results:
-        logger.error("No funds analysed successfully. Exiting.")
-        sys.exit(1)
-
-    df_results = pd.DataFrame(results)
-    print(f"  Funds analysed : {len(df_results)}")
-
-    # --- Composite score ---
-    logger.info("Computing composite scores...")
-    df_scored = compute_composite_score(df_results)
-    df_scored["rank"] = (
-        df_scored["score"].rank(ascending=False, method="min").astype(int)
-    )
-    df_scored = df_scored.sort_values("rank")
-
-    # --- Walk-forward validation ---
-    logger.info("Running walk-forward validation...")
-    val_df = walk_forward_validation(
-        aligned_navs=aligned_navs,
-        bench_nav=bench_nav,
-        train_weeks=LB_3Y,
-        test_weeks=LB_1Y,
-        step_weeks=LB_6M,
+    # 2. Load benchmark
+    bench_chart = provider.get_index_chart(PRIMARY_BENCHMARK)
+    bench_nav = clean_nav_to_series(bench_chart)
+    if len(bench_nav) < LB_3Y:
+        raise RuntimeError(f"Benchmark history too short: {len(bench_nav)} weeks")
+    bench_ret = weekly_returns(bench_nav)
+    logger.info(
+        f"Benchmark Nifty 500: {len(bench_nav)} weeks "
+        f"({bench_nav.index.min().date()} -> {bench_nav.index.max().date()})"
     )
 
-    # --- Build output CSV ---
-    output = pd.DataFrame()
-    output["mfId"] = df_scored["mfId"]
-    output["name"] = df_scored["name"]
-    output["rank"] = df_scored["rank"]
-    output["score"] = df_scored["score"]
-    output["data_days"] = df_scored["data_days"]
-    output["subsector"] = df_scored["subsector"]
-    output["cagr_1y"] = df_scored["cagr_1y"].apply(_pct)
-    output["cagr_3y"] = df_scored["cagr_3y"].apply(_pct)
-    output["cagr_5y"] = df_scored["cagr_5y"].apply(_pct)
-    output["volatility"] = df_scored["volatility"].apply(_pct)
-    output["sharpe"] = df_scored["sharpe"].apply(_ratio)
-    output["sortino"] = df_scored["sortino"].apply(_ratio)
-    output["alpha"] = df_scored["alpha"].apply(_pct)
-    output["beta"] = df_scored["beta"].apply(_ratio)
-    output["info_ratio"] = df_scored["info_ratio"].apply(_ratio)
-    output["tm_alpha"] = df_scored["tm_alpha"].apply(_pct)
-    output["tm_gamma"] = df_scored["tm_gamma"].apply(_ratio)
-    output["excess_autocorr"] = df_scored["excess_autocorr"].apply(_ratio)
-    output["active_divergence"] = df_scored["active_divergence"].apply(_pct)
-    output["gain_to_pain"] = df_scored["gain_to_pain"].apply(_num)
-    output["tail_ratio"] = df_scored["tail_ratio"].apply(_num)
-    output["cvar"] = df_scored["cvar"].apply(_pct)
-    output["max_drawdown"] = df_scored["max_drawdown"].apply(_pct)
-    output["pain_index"] = df_scored["pain_index"].apply(_pct)
-    output["ulcer_index"] = df_scored["ulcer_index"].apply(_num)
-    output["ulcer_perf_index"] = df_scored["ulcer_perf_index"].apply(_num)
-    output["recovery_speed"] = df_scored["recovery_speed"].apply(_num)
-    output["avg_dd_duration"] = df_scored["avg_dd_duration"].apply(_num)
-    output["up_capture"] = df_scored["up_capture"].apply(_ratio)
-    output["down_capture"] = df_scored["down_capture"].apply(_ratio)
-    output["capture_spread"] = df_scored["capture_spread"].apply(_ratio)
-    output["beta_asymmetry"] = df_scored["beta_asymmetry"].apply(_ratio)
-    output["transition_alpha"] = df_scored["transition_alpha"].apply(_pct)
-    output["bear_outperformance"] = df_scored["bear_outperformance"].apply(_pct)
-    output["rolling_1y_beat_pct"] = df_scored["rolling_1y_beat_pct"].apply(_pct)
-    output["cross_horizon_consistency"] = df_scored["cross_horizon_consistency"].apply(_num)
-    output["sortino_stability"] = df_scored["sortino_stability"].apply(_num)
-    output["hit_rate"] = df_scored["hit_rate"].apply(_pct)
-    output["momentum_6m"] = df_scored["momentum_6m"].apply(_pct)
-    output["momentum_12m"] = df_scored["momentum_12m"].apply(_pct)
-    output["vol_norm_momentum"] = df_scored["vol_norm_momentum"].apply(_ratio)
-    output["acceleration"] = df_scored["acceleration"].apply(_pct)
-    output["dd_adj_momentum"] = df_scored["dd_adj_momentum"].apply(_ratio)
-    output["current_drawdown"] = df_scored["current_drawdown"].apply(_pct)
-    output["skewness"] = df_scored["skewness"].apply(_ratio)
-    output["kurtosis"] = df_scored["kurtosis"].apply(_ratio)
-    output["aum"] = df_scored["aum"]
-    output["data_weeks"] = df_scored["data_weeks"]
-    output["confidence"] = df_scored["confidence"].apply(_ratio)
+    # 3. Load all fund NAVs aligned to benchmark grid
+    aligned_navs = load_aligned_navs(provider, funds_df, bench_nav)
+    funds_df = funds_df[funds_df["mfId"].isin(aligned_navs)].reset_index(drop=True)
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    output.to_csv(OUTPUT_FILE, index=False)
-    logger.info(f"Results saved to {OUTPUT_FILE}")
+    # 4. Regime classifier (24M transition matrix for hold-period projection)
+    reg = regime_series(bench_nav)
+    cur_probs = soft_current_regime(reg)
+    transition_24m = empirical_forward_mix(reg, horizon_weeks=LB_2Y)
+    forward_mix = cur_probs @ transition_24m
+    logger.info(
+        "Current regime mix (Bull/Sideways/Correction/Bear): "
+        + ", ".join(f"{p:.2f}" for p in cur_probs)
+    )
+    logger.info(
+        "Expected forward 24M regime mix (Bull/Sideways/Correction/Bear): "
+        + ", ".join(f"{p:.2f}" for p in forward_mix)
+    )
 
-    # --- Console summary ---
-    print("\n" + "=" * 84)
-    print("  SCORING MODEL SUMMARY")
-    print("=" * 84)
+    # 5. Per-fund metrics
+    metrics: List[dict] = []
+    for _, row in funds_df.iterrows():
+        mf_id = row["mfId"]
+        nav = aligned_navs[mf_id]
+        m = compute_fund_metrics(
+            mf_id=mf_id,
+            fund_nav=nav,
+            bench_nav=bench_nav,
+            bench_ret=bench_ret,
+            reg=reg,
+            name=row.get("name"),
+            aum=row.get("aum"),
+            subsector=row.get("subsector"),
+        )
+        metrics.append(m)
 
-    categories = {
-        "Skill & Alpha Quality": [
-            "alpha", "info_ratio", "tm_alpha", "excess_autocorr",
-            "active_divergence_score",
-        ],
-        "Path Quality & Tail Risk": [
-            "gain_to_pain", "tail_ratio", "cvar", "ulcer_perf_index", "calmar",
-        ],
-        "Drawdown Resilience": [
-            "max_drawdown", "pain_index", "recovery_speed",
-            "avg_dd_duration", "current_drawdown",
-        ],
-        "Regime Adaptability": [
-            "capture_spread", "transition_alpha", "beta_asymmetry",
-            "bear_outperformance", "tm_gamma",
-        ],
-        "Consistency & Stability": [
-            "rolling_1y_beat_pct", "cross_horizon_consistency",
-            "sortino_stability", "hit_rate",
-        ],
-        "Momentum & Acceleration": [
-            "momentum_6m", "vol_norm_momentum", "acceleration",
-            "dd_adj_momentum",
-        ],
-        "Distribution Quality": [
-            "skewness", "kurtosis",
-        ],
+    df = pd.DataFrame(metrics)
+
+    # 6. Cross-sectional peer-median computations (P1 + P2 augmented Carhart)
+    logger.info("Computing peer-median hybrid XIRRs and 12M alphas...")
+    peer_med_xirr = compute_peer_median_xirrs(aligned_navs, [])
+    peer_med_alpha = compute_peer_median_12m_alphas(aligned_navs, bench_nav)
+    bench_xirrs = benchmark_hybrid_xirrs(bench_nav)
+    logger.info(
+        f"  Peer-median XIRR windows: {len(peer_med_xirr)};  "
+        f"peer-median alpha windows: {len(peer_med_alpha)};  "
+        f"benchmark XIRR windows: {len(bench_xirrs)}"
+    )
+
+    def _safe_list(v):
+        if isinstance(v, list):
+            return v
+        return []
+
+    df["hybrid_xirr_hit_peer"] = df["_rolling_hybrid_xirrs"].apply(
+        lambda v: fund_hit_rate_vs_peer_xirr(_safe_list(v), peer_med_xirr)
+    ) if "_rolling_hybrid_xirrs" in df.columns else None
+    df["hybrid_xirr_hit_bench"] = df["_rolling_hybrid_xirrs"].apply(
+        lambda v: fund_hit_rate_vs_benchmark(_safe_list(v), bench_xirrs)
+    ) if "_rolling_hybrid_xirrs" in df.columns else None
+    df["alpha_beat_peer_frac_12m"] = df["_rolling_12m_alphas"].apply(
+        lambda v: fund_hit_rate_vs_peer_alpha(_safe_list(v), peer_med_alpha)
+    ) if "_rolling_12m_alphas" in df.columns else None
+
+    # 7. Bayesian shrunk alpha (P2)
+    blocks_dict = {
+        r["mfId"]: r["_block_alphas"]
+        for _, r in df.iterrows()
+        if isinstance(r.get("_block_alphas"), np.ndarray) and len(r["_block_alphas"]) > 0
     }
-    print("\n  Weight allocation:")
-    for cat, metrics in categories.items():
-        cat_w = sum(
-            SCORE_COMPONENTS[m][1] for m in metrics if m in SCORE_COMPONENTS
-        )
-        print(f"    {cat:30s}: {cat_w * 100:5.1f}%")
+    shrunk, peer_mean, lams = james_stein_shrunk(blocks_dict)
+    df["bayes_shrunk_alpha"] = df["mfId"].map(shrunk)
+    df["bayes_shrink_lambda"] = df["mfId"].map(lams)
+    logger.info(f"Bayesian peer-mean 12M alpha: {peer_mean:.4f}; n_funds: {len(shrunk)}")
 
-    if not val_df.empty:
-        print("\n  Walk-Forward Validation (3Y train → 1Y forward):")
-        print(f"    Evaluation periods  : {len(val_df)}")
-        print(
-            f"    Avg rank correlation: "
-            f"{val_df['rank_correlation'].mean():.3f}"
-        )
-        print(
-            f"    Avg top-5 excess    : "
-            f"{val_df['top5_excess_return'].mean() * 100:.2f}%"
-        )
-        print(
-            f"    Avg hit rate        : "
-            f"{val_df['hit_rate'].mean() * 100:.1f}%"
-        )
-        print(
-            f"    Min / Max corr      : "
-            f"{val_df['rank_correlation'].min():.3f} / "
-            f"{val_df['rank_correlation'].max():.3f}"
-        )
+    # 8. Forward 24M regime alpha (P3)
+    pra_dict = {
+        r["mfId"]: r["_per_regime_alpha"]
+        for _, r in df.iterrows()
+        if isinstance(r.get("_per_regime_alpha"), np.ndarray)
+    }
+    peer_alphas = peer_mean_per_regime(pra_dict)
+    fwd: Dict[str, Optional[float]] = {}
+    for fid, a in pra_dict.items():
+        fwd[fid] = expected_forward_alpha(a, peer_alphas, cur_probs, transition_24m)
+    df["forward_alpha_24m"] = df["mfId"].map(fwd)
+
+    # 9. Pillar scores
+    df["p1_score"] = assemble_p1_score(df)
+    df["p2_score"] = assemble_p2_score(df)
+    df["p3_score"] = assemble_p3_score(df)
+    df["p4_score"] = assemble_p4_score(df)
+    df["p5_score"] = assemble_p5_score(df)
+
+    # 10. Confidence haircut + composite
+    df["confidence"] = df["data_weeks"].apply(confidence_haircut)
+    df["score"] = composite_score(df).round(2)
+    df = df.sort_values("score", ascending=False).reset_index(drop=True)
+    df["rank"] = df.index + 1
+
+    # 11. Walk-forward 24M IC diagnostic
+    ic = walk_forward_ic_24m(aligned_navs, bench_nav)
+    if ic is not None:
+        logger.info(f"Walk-forward 24M hybrid-XIRR persistence IC (Spearman): {ic:.3f}")
     else:
-        print("\n  Walk-forward validation: insufficient data for evaluation.")
+        logger.info("Walk-forward 24M IC could not be computed (insufficient history).")
 
-    print("\n" + "=" * 84)
-    print("  TOP 20 TOTAL MARKET FUNDS BY COMPOSITE SCORE")
-    print("=" * 84 + "\n")
-
-    display_cols = [
-        "rank", "name", "score", "subsector", "cagr_5y", "alpha",
-        "gain_to_pain", "max_drawdown", "current_drawdown",
-        "rolling_1y_beat_pct", "capture_spread", "aum",
+    # 12. Output
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    output_cols = [
+        "mfId", "name", "rank", "score", "data_days", "subsector",
+        "cagr_1y", "cagr_3y", "cagr_5y",
+        "volatility", "sharpe", "alpha", "beta", "info_ratio",
+        "bayes_shrunk_alpha", "bayes_shrink_lambda", "block_alpha_n",
+        "alpha_pos_frac_12m", "alpha_beat_peer_frac_12m", "rolling_12m_n",
+        "forward_alpha_24m", "regime_capture_spread", "bear_correction_excess",
+        "recovery_half_life",
+        "hybrid_xirr_p50", "hybrid_xirr_p25", "hybrid_xirr_recent",
+        "hybrid_xirr_hit_bench", "hybrid_xirr_hit_peer", "hybrid_xirr_n",
+        "max_drawdown", "ulcer_perf_index", "gain_to_pain", "tail_ratio",
+        "current_drawdown", "vol_drag_adj_return",
+        "active_divergence", "active_skill_signal", "beta_stability",
+        "aum_capacity_mult",
+        "p1_score", "p2_score", "p3_score", "p4_score", "p5_score",
+        "confidence", "aum", "data_weeks",
     ]
-    display_cols = [c for c in display_cols if c in output.columns]
-    print(output.head(20)[display_cols].to_string(index=False))
+    out_df = df[output_cols].copy()
 
-    print(f"\n  Full results ({len(output)} funds) → {OUTPUT_FILE}")
-    print("=" * 84 + "\n")
+    pct_cols = [
+        "cagr_1y", "cagr_3y", "cagr_5y", "alpha", "bayes_shrunk_alpha",
+        "forward_alpha_24m", "bear_correction_excess",
+        "hybrid_xirr_p50", "hybrid_xirr_p25", "hybrid_xirr_recent",
+        "max_drawdown", "current_drawdown", "active_divergence",
+        "vol_drag_adj_return",
+    ]
+    for c in pct_cols:
+        out_df[c] = (out_df[c] * 100.0).round(2)
+
+    frac_cols = [
+        "alpha_pos_frac_12m", "alpha_beat_peer_frac_12m",
+        "hybrid_xirr_hit_bench", "hybrid_xirr_hit_peer",
+    ]
+    for c in frac_cols:
+        out_df[c] = (out_df[c] * 100.0).round(1)  # display as %
+
+    other_round = [
+        "volatility", "sharpe", "beta", "info_ratio",
+        "regime_capture_spread", "ulcer_perf_index",
+        "gain_to_pain", "tail_ratio",
+        "active_skill_signal", "beta_stability", "aum_capacity_mult",
+        "p1_score", "p2_score", "p3_score", "p4_score", "p5_score",
+        "confidence", "bayes_shrink_lambda",
+    ]
+    for c in other_round:
+        out_df[c] = out_df[c].astype(float).round(3)
+    out_df["recovery_half_life"] = out_df["recovery_half_life"].round(0)
+
+    out_df.to_csv(OUTPUT_FILE, index=False)
+    logger.info(f"Wrote {len(out_df)} rows -> {OUTPUT_FILE}")
+
+    # Pretty top-15
+    print("\nTop 15 by composite score:")
+    print(
+        out_df[
+            ["rank", "name", "subsector", "score", "cagr_3y",
+             "hybrid_xirr_p50", "hybrid_xirr_hit_peer",
+             "alpha_pos_frac_12m"]
+        ]
+        .head(15)
+        .to_string(index=False)
+    )
+
+
+# ===================================================================
+# CLI
+# ===================================================================
+
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(description="Total Market scoring (Claude HSC)")
+    p.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Force refetch of all data via MfDataProvider before scoring",
+    )
+    return p.parse_args()
 
 
 if __name__ == "__main__":
-    p = argparse.ArgumentParser(description="Total Market MF screener (Claude)")
-    p.add_argument(
-        "--date",
-        default=None,
-        metavar="YYYY-MM-DD",
-        help="Cached data folder under ./data (default: today)",
-    )
-    main(date=p.parse_args().date)
+    args = parse_args()
+    run(force_refresh=args.refresh)

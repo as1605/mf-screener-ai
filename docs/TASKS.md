@@ -10,7 +10,7 @@ This repository was built by following a series of tasks, each designed to build
 
 ## 2. Algorithm Generation (`tasks/2_algorithm.md`)
 **Goal**: Generate scoring algorithms using different AI models.
--   Prompted AI models (Claude, Gemini, GPT, Grok, and Codex where used) to create Python scripts per sector (e.g. Small Cap, Mid Cap, Total Market, Multi Asset Allocation).
+-   Prompted AI models (Claude, Gemini, GPT, Grok) to create Python scripts per sector (e.g. Small Cap, Mid Cap, Total Market, Multi Asset Allocation).
 -   Each model implemented its own strategy using metrics appropriate to the mandate (single-equity-benchmark alpha vs multi-asset sleeve inference, etc.).
 -   Scripts output CSV files with scores and ranks under `results/`.
 

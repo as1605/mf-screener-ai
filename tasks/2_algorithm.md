@@ -1,19 +1,19 @@
 # MF Scoring Algorithm
 
-{SECTOR}={Mid Cap}
-{model}={GPT}
+{SECTOR}={Total Market}
+{model}={Grok}
 
-Your task is to create an algorithm to score Indian Mutual Funds from {SECTOR} sector. A higher score should predict higher returns in the next 1 year. You are given NAV history of all funds in that sector from MfDataProvider for last 5 years.
+Your task is to create an algorithm to score Indian Mutual Funds from {SECTOR} sector. A higher score should predict a better outcome for the user's specific scenario: monthly SIP for 12 months, then a 12-month hold (no further contributions), and a single full exit at month 24. You are given NAV history of all funds in that sector from MfDataProvider for last 5 years.
 
 Do your own research, do not copy implementations of other models.
 
 ## Task
 - Understand how MfDataProvider can be used (given below).
-- Assume SIP investment, on 1st of each month over the next 1 year.
+- Assume monthly SIP investment on the 1st of each month for the next 12 months, followed by a 12-month hold (no further contributions), and a single full exit at month 24. The metric to optimise is the XIRR of this hybrid 24-month cashflow (12 negative cashflows + 1 positive cashflow).
 - Understand requirements to gain best returns in {SECTOR} . Think about the objective and opportunities for this sector.
-- Research indicators of funds and strategies which can give great returns in {SECTOR} in next 1 year
+- Research indicators of funds and strategies which can give great returns in {SECTOR} for this 24-month hybrid SIP-then-hold horizon
 - Research advanced metrics used by intelligent Portfolio Managers to analyze MFs
-- Do not just see LAST 1 year SIP returns, be intelligent and find metrics which will improve NEXT 1 year SIP return. Feel free to research the internet to understand market dynamics for this sector in India for the NEXT year
+- Do not just look at trailing 1Y SIP returns - the year-2 hold phase has no SIP cushion, so drawdown recovery and hold-period resilience matter as much as accumulation-phase skill. Feel free to research the internet to understand market dynamics for this sector in India for the NEXT 24 months
 - Research long term strategies which can be implemented with this NAV data. Thouroughly think about how each strategy or pattern can be used. Do not limit to simple ratios, make full use of the daily data, and any complex relations possible to implement in python
 - Research how to identify market swings and check fund performance against it. The fund should be able to take advantage of swings to maximise total return in long term
 - See how we can create rolling metrics and backtest performance for tuning metrics with the given data
@@ -25,7 +25,12 @@ Do your own research, do not copy implementations of other models.
 
 Sector Name: Equity
 Sub Sector Names:
-- Mid Cap Fund
+- Flexi Cap Fund
+- Multi Cap Fund
+- Value Fund
+- Contra Fund
+- Focused Fund
+Index: _NIFTY500
 
 ## MfDataProvider - Quick API Reference
 
