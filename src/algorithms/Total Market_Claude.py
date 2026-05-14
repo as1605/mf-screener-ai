@@ -1225,8 +1225,8 @@ def load_aligned_navs(
     return aligned
 
 
-def run(force_refresh: bool = False) -> None:
-    provider = MfDataProvider()
+def run(force_refresh: bool = False, date: Optional[str] = None) -> None:
+    provider = MfDataProvider(date=date)
     if force_refresh:
         provider.fetch_all_data()
 
@@ -1423,6 +1423,12 @@ def run(force_refresh: bool = False) -> None:
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Total Market scoring (Claude HSC)")
     p.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
+    p.add_argument(
         "--refresh",
         action="store_true",
         help="Force refetch of all data via MfDataProvider before scoring",
@@ -1432,4 +1438,4 @@ def parse_args() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = parse_args()
-    run(force_refresh=args.refresh)
+    run(force_refresh=args.refresh, date=args.date)

@@ -16,10 +16,11 @@ rebound participation with controlled SIP pain.
 Run: python src/algorithms/Small\ Cap_Grok.py
 """
 
+import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -263,8 +264,8 @@ def score_fund(mf_id: str, name: str, aum: float, fund_chart: pd.DataFrame, benc
     }
 
 
-def main():
-    provider = MfDataProvider()
+def main(date: Optional[str] = None) -> None:
+    provider = MfDataProvider(date=date)
 
     all_mf = provider.list_all_mf()
     small_ids = []
@@ -323,4 +324,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    p = argparse.ArgumentParser(description="Small Cap MF screener (Grok)")
+    p.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
+    main(date=p.parse_args().date)

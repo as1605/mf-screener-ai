@@ -16,10 +16,11 @@ low downside, clean style, persistence.
 Run: python src/algorithms/Mid\ Cap_Grok.py
 """
 
+import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -295,9 +296,9 @@ def score_fund(mf_id: str, name: str, aum: float, fund_chart: pd.DataFrame, mid_
             "recovery_weeks": 40.0, "momentum_quality": 0.0, "aum_penalty": 0.92, "error": str(e)
         }
 
-def main():
+def main(date: Optional[str] = None) -> None:
     logger.info("Grok Mid-Cap v2 – Aggressive Theory+Data Rewrite")
-    provider = MfDataProvider()
+    provider = MfDataProvider(date=date)
 
     all_mf = provider.list_all_mf()
     mid_ids = []
@@ -362,4 +363,11 @@ def main():
     logger.info(f"Top 5: {df.head(5)[['rank','name','score']].to_string(index=False)}")
 
 if __name__ == "__main__":
-    main()
+    p = argparse.ArgumentParser(description="Mid Cap MF screener (Grok)")
+    p.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
+    main(date=p.parse_args().date)

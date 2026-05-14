@@ -445,11 +445,17 @@ def analyse_fund(
 
 def main():
     parser = argparse.ArgumentParser(description="Run Grok Total Market MF scorer")
+    parser.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
     parser.add_argument("--force-refresh", action="store_true", help="Force data refresh")
     args = parser.parse_args()
 
     logger.info(f"Starting Grok scorer for {SECTOR}")
-    provider = MfDataProvider()
+    provider = MfDataProvider(date=args.date)
 
     # Ensure data present (charts + holdings for theme)
     if args.force_refresh:

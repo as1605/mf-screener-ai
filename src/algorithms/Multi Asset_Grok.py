@@ -19,6 +19,7 @@ in upswings + equity rebound skill + low pain.
 Run: python src/algorithms/Multi\ Asset_Grok.py
 """
 
+import argparse
 import logging
 import sys
 from pathlib import Path
@@ -289,8 +290,8 @@ def score_fund(mf_id: str, name: str, aum: float,
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-def main():
-    provider = MfDataProvider()
+def main(date: Optional[str] = None) -> None:
+    provider = MfDataProvider(date=date)
 
     all_mf = provider.list_all_mf()
     multi_ids = []
@@ -355,4 +356,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    p = argparse.ArgumentParser(description="Multi Asset MF screener (Grok)")
+    p.add_argument(
+        "--date",
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Cached data folder under ./data (default: today)",
+    )
+    main(date=p.parse_args().date)
