@@ -1,28 +1,29 @@
 mfId,name,rank,score,data_days,cagr_3y,cagr_5y,agility_score,pm_up_beta,sortino_3y,sip_stability,aum
-M_SBTO,SBI Multi Asset Allocation Fund,1,64.3,687,,,-0.0632,0.1132,3.3448,1.7623,17665.99
-M_ICPPP,ICICI Pru Multi-Asset Fund,2,53.44,697,,,0.0020,0.0498,2.6203,1.1102,83547.35
-M_HDCUU,HDFC Multi-Asset Allocation Fund,3,48.83,697,,,-0.0685,0.0731,2.4986,1.2843,5887.05
-M_TATI,Tata Multi Asset Allocation Fund,4,48.72,323,,,0.0534,0.0522,3.4121,,5000.98
-M_NIPU,Nippon India Multi Asset Allocation Fund,5,46.55,298,,,-0.0960,0.1249,3.6984,,14737.58
-M_AXPU,Axis Multi Asset Allocation Fund,6,45.03,697,,,-0.0970,0.1317,2.0263,1.0708,2064.52
-M_UNUN,Union Multi Asset Allocation Fund,7,44.4,87,,,-0.0840,0.1972,,,963.63
-M_UTIMA,UTI Multi Asset Allocation Fund,8,43.68,697,,,-0.0143,0.0915,1.9042,0.9632,6864.59
-M_DSPUI,DSP Multi Asset Allocation Fund,9,43.08,137,,,-0.0354,0.1206,,,8395.71
-M_INVIP,Invesco India Multi Asset Allocation Fund,10,41.63,73,,,-0.0378,0.1265,,,949.88
-M_ADYUO,Aditya Birla SL Multi Asset Allocation Fund,11,39.59,171,,,-0.0428,0.1146,,,6530.45
-M_SACM,Samco Multi Asset Allocation Fund,12,39.16,71,,,-0.0852,0.1506,,,401.71
-M_QUUC,Quantum Multi Asset Allocation Fund,13,38.42,114,,,0.0070,0.0914,,,56.88
-M_QUNS,Quant Multi Asset Allocation Fund,14,37.69,696,,,-0.3151,0.1847,2.3636,0.8772,5257.41
-M_KOTUU,Kotak Multi Asset Allocation Fund,15,36.38,137,,,-0.1966,0.1887,,,12073.43
-M_SUDUO,Sundaram Multi Asset Allocation Fund,16,36.05,120,,,-0.1313,0.1788,,,3276.67
-M_BANHP,Bandhan Multi Asset Allocation Fund,17,36.03,119,,,-0.0923,0.1281,,,3240.29
-M_HSAO,HSBC Multi Asset Allocation Fund,18,35.96,115,,,-0.2508,0.2146,,,2588.62
-M_MAAO,Mahindra Manulife Multi Asset Allocation Fund,19,35.09,113,,,-0.0580,0.1118,,,1097.58
-M_EDMU,Edelweiss Multi Asset Allocation Fund,20,34.96,151,,,0.0271,-0.0157,,,2580.27
-M_SHRS,Shriram Multi Asset Allocation Fund,21,33.08,140,,,-0.1822,0.1475,,,138.53
-M_LIEG,LIC MF Multi Asset Allocation Fund,22,32.56,64,,,-0.0365,0.0686,,,940.47
-M_BAJAO,Bajaj Finserv Multi Asset Allocation Fund,23,32.4,101,,,-0.2299,0.1673,,,1811.41
-M_WOMT,WOC Multi Asset Allocation Fund,24,30.81,156,,,-0.0528,0.0649,,,7118.26
-M_BANKD,Bank of India Multi Asset Allocation Fund,25,30.16,115,,,-0.0998,0.1153,,,357.41
-M_BABL,Baroda BNP Paribas Multi Asset Fund,26,29.44,177,,,-0.0883,0.0915,,,1408.46
-M_MIUD,Mirae Asset Multi Asset Allocation Fund,27,26.07,119,,,-0.1035,0.1070,,,3341.6
+M_SBTO,SBI Multi Asset Allocation Fund,1,66.37,688,,,-0.0623,0.1055,3.3423,1.7623,16149.83
+M_ICPPP,ICICI Pru Multi-Asset Fund,2,52.45,698,,,0.0024,0.0360,2.6030,1.1102,77658.27
+M_HDCUU,HDFC Multi-Asset Allocation Fund,3,49.08,698,,,-0.0680,0.0634,2.4871,1.2843,5887.05
+M_TATI,Tata Multi Asset Allocation Fund,4,48.65,324,,,0.0546,0.0409,3.3949,,5000.98
+M_NIPU,Nippon India Multi Asset Allocation Fund,5,46.6,299,,,-0.0907,0.1101,3.6991,,14737.58
+M_AXPU,Axis Multi Asset Allocation Fund,6,45.01,698,,,-0.0954,0.1223,2.0259,1.0708,2228.78
+M_DSPUI,DSP Multi Asset Allocation Fund,7,44.42,138,,,-0.0228,0.1106,,,9241.13
+M_UTIMA,UTI Multi Asset Allocation Fund,8,43.5,698,,,-0.0132,0.0819,1.8967,0.9632,6864.59
+M_UNUN,Union Multi Asset Allocation Fund,9,42.47,88,,,-0.0791,0.1592,,,888.12
+M_INVIP,Invesco India Multi Asset Allocation Fund,10,40.58,74,,,-0.0231,0.1087,,,1056.77
+M_ADYUO,Aditya Birla SL Multi Asset Allocation Fund,11,40.28,172,,,-0.0351,0.0924,,,6530.45
+M_QUUC,Quantum Multi Asset Allocation Fund,12,39.89,115,,,0.0101,0.0712,,,56.88
+M_QUNS,Quant Multi Asset Allocation Fund,13,39.88,697,,,-0.3130,0.1790,2.3711,0.8772,5257.41
+M_BANHP,Bandhan Multi Asset Allocation Fund,14,37.59,120,,,-0.0796,0.1141,,,3240.29
+M_KOTUU,Kotak Multi Asset Allocation Fund,15,36.34,138,,,-0.1828,0.1668,,,13447.43
+M_SUDUO,Sundaram Multi Asset Allocation Fund,16,36.01,121,,,-0.1241,0.1513,,,3276.67
+M_HSAO,HSBC Multi Asset Allocation Fund,17,35.92,116,,,-0.2348,0.1901,,,2844.33
+M_SACM,Samco Multi Asset Allocation Fund,18,35.86,72,,,-0.0841,0.1181,,,401.71
+M_MAAO,Mahindra Manulife Multi Asset Allocation Fund,19,35.08,114,,,-0.0529,0.0878,,,1097.58
+M_EDMU,Edelweiss Multi Asset Allocation Fund,20,34.97,152,,,0.0257,-0.0173,,,2591.9
+M_LIEG,LIC MF Multi Asset Allocation Fund,21,34.94,65,,,0.0039,0.0526,,,940.47
+M_SHRS,Shriram Multi Asset Allocation Fund,22,33.96,141,,,-0.1675,0.1317,,,138.53
+M_BAJAO,Bajaj Finserv Multi Asset Allocation Fund,23,32.48,102,,,-0.2172,0.1443,,,1811.41
+M_WOMT,WOC Multi Asset Allocation Fund,24,31.8,157,,,-0.0468,0.0561,,,7118.26
+M_BANKD,Bank of India Multi Asset Allocation Fund,25,29.52,116,,,-0.0953,0.0921,,,357.41
+M_CAUS,Canara Rob Multi Asset Allocation Fund,26,29.26,50,,,-0.0435,0.0500,,,1271.22
+M_BABL,Baroda BNP Paribas Multi Asset Fund,27,28.84,178,,,-0.0810,0.0710,,,1408.46
+M_MIUD,Mirae Asset Multi Asset Allocation Fund,28,26.38,120,,,-0.0969,0.0867,,,3341.6

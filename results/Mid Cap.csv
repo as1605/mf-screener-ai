@@ -1,65 +1,65 @@
 mfId,name,total_rank,final_score,avg_data_days,avg_cagr_3y,score_Claude,score_GPT,score_Gemini,score_Grok
-M_INMI,Invesco India Midcap Fund,1,0.96,3829.0,26.0,80.11,77.94,80.25,65.1
-M_EDME,Edelweiss Mid Cap Fund,2,0.943,3829.0,25.41,71.39,78.33,89.6,61.59
-M_HDCMS,HDFC Mid Cap Fund,3,0.76,3829.0,23.38,71.5,79.39,68.05,40.55
-M_UNIA,Union Midcap Fund,4,0.751,1755.0,25.8,65.95,68.69,90.36,38.87
-M_BNMP,Baroda BNP Paribas Mid Cap Fund,5,0.745,3829.0,22.39,61.14,67.25,61.68,57.08
-M_KORY,Kotak Midcap Fund,6,0.731,3829.0,22.52,70.27,73.49,61.16,44.77
-M_ICPID,ICICI Pru Midcap Fund,7,0.694,3829.0,25.17,55.74,60.38,70.65,52.14
-M_LTIU,HSBC Midcap Fund,8,0.68,3829.0,26.19,60.97,53.71,64.92,55.49
-M_AXMI,Axis Midcap Fund,9,0.648,3829.0,20.27,56.9,68.09,60.19,42.75
-M_WOCD,WOC Mid Cap Fund,10,0.63,956.0,26.82,77.43,79.73,N/A (not ranked),45.77
-M_TAMW,Tata Mid Cap Fund,11,0.612,3829.0,21.8,47.52,53.03,55.68,56.44
-M_SUNIU,Sundaram Mid Cap Fund,12,0.559,3829.0,23.42,39.96,58.71,49.76,49.81
-M_MANC,Mahindra Manulife Mid Cap Fund,13,0.542,2371.0,24.3,51.69,57.76,38.95,47.23
-M_FRRN,Franklin India Mid Cap Fund,14,0.538,3829.0,20.76,38.48,64.65,38.04,48.37
-M_SBIAU,SBI Midcap Fund,15,0.536,3829.0,17.56,50.93,67.89,31.02,42.32
-M_NIGW,Nippon India Growth Mid Cap Fund,16,0.527,3829.0,24.18,49.15,65.9,41.66,37.69
-M_MIAI,Mirae Asset Midcap Fund,17,0.517,1942.0,23.19,40.87,56.76,78.28,28.42
-M_DSPMU,DSP Midcap Fund,18,0.465,3829.0,20.06,31.68,51.09,31.33,54.23
-M_CAMR,Canara Rob Mid Cap Fund,19,0.419,896.0,21.76,55.89,57.9,N/A (not ranked),39.24
-M_ITMA,ITI Mid Cap Fund,20,0.418,1486.0,24.31,43.29,38.35,61.06,34.55
-M_MOLS,Motilal Oswal Midcap Fund,21,0.401,3499.0,22.47,51.25,42.72,42.13,33.82
-M_UTIMP,UTI Mid Cap Fund,22,0.396,3829.0,18.29,37.25,39.68,33.94,47.36
-M_PGDO,PGIM India Midcap Fund,23,0.381,3565.0,16.21,30.04,50.84,30.16,41.48
-M_JMDL,JM Midcap Fund,24,0.33,901.0,26.25,51.05,43.58,N/A (not ranked),38.33
-M_IDCCL,Bandhan Midcap Fund,25,0.308,971.0,21.85,47.47,47.29,N/A (not ranked),33.37
-M_QUTD,Quant Mid Cap Fund,26,0.3,3823.0,18.18,55.22,36.66,21.19,30.53
-M_ADTMI,Aditya Birla SL Midcap Fund,27,0.26,3829.0,20.37,24.58,34.13,25.25,39.99
-M_TACV,Taurus Mid Cap Fund,28,0.232,3829.0,16.18,22.98,27.76,15.92,46.31
-M_HEIP,Helios Mid Cap Fund,29,0.231,414.0,N/A (insufficient history),59.33,37.33,N/A (not ranked),N/A (not ranked)
-M_INCW,Invesco India Large & Mid Cap Fund,30,0.186,697.0,17.72,N/A (not ranked),N/A (not ranked),N/A (not ranked),53.99
-M_IDIC,LIC MF Midcap Fund,31,0.127,2663.0,19.32,11.56,29.08,9.84,36.64
-M_MISM,Mirae Asset Large & Midcap Fund,32,0.122,697.0,20.67,N/A (not ranked),N/A (not ranked),N/A (not ranked),43.11
-M_QUNL,Quant Large & Mid Cap Fund,33,0.121,696.0,18.07,N/A (not ranked),N/A (not ranked),N/A (not ranked),42.82
-M_DSIY,DSP Large & Mid Cap Fund,34,0.12,697.0,16.25,N/A (not ranked),N/A (not ranked),N/A (not ranked),42.61
-M_CAOP,Canara Rob Large and Mid Cap Fund,35,0.115,697.0,19.1,N/A (not ranked),N/A (not ranked),N/A (not ranked),41.91
-M_ADTQV,Aditya Birla SL Large & Mid Cap Fund,36,0.108,697.0,14.71,N/A (not ranked),N/A (not ranked),N/A (not ranked),40.54
-M_EDAA,Edelweiss Large & Mid Cap Fund,37,0.104,697.0,16.12,N/A (not ranked),N/A (not ranked),N/A (not ranked),40.01
-M_ESLI,Navi Large & Midcap Fund,38,0.103,544.0,15.14,N/A (not ranked),N/A (not ranked),N/A (not ranked),39.73
-M_WOLR,WOC Large & Mid Cap Fund,39,0.089,125.0,14.81,N/A (not ranked),N/A (not ranked),N/A (not ranked),37.32
-M_KOEO,Kotak Large & Midcap Fund,40,0.085,697.0,16.7,N/A (not ranked),N/A (not ranked),N/A (not ranked),36.63
-M_BANOU,Bank of India Mid Cap Fund,41,0.081,253.0,N/A (insufficient history),25.93,N/A (not ranked),N/A (not ranked),N/A (not ranked)
-M_LIFC,LIC MF Large & Midcap Fund,42,0.079,585.0,14.17,N/A (not ranked),N/A (not ranked),N/A (not ranked),35.7
-M_HSLA,HSBC Large & Mid Cap Fund,43,0.078,372.0,17.46,N/A (not ranked),N/A (not ranked),N/A (not ranked),35.53
-M_IDFOC,Bandhan Large & Mid Cap Fund,44,0.064,697.0,15.87,N/A (not ranked),N/A (not ranked),N/A (not ranked),33.1
-M_PGPL,PGIM India Large and Mid Cap Fund,45,0.061,117.0,10.66,N/A (not ranked),N/A (not ranked),N/A (not ranked),32.54
-M_TATAU,Tata Large & Mid Cap Fund,46,0.06,697.0,14.83,N/A (not ranked),N/A (not ranked),N/A (not ranked),32.26
-M_SUNLA,Sundaram Large and Mid Cap Fund,47,0.052,696.0,15.03,N/A (not ranked),N/A (not ranked),N/A (not ranked),30.97
-M_BAJAL,Bajaj Finserv Large and Mid Cap Fund,48,0.039,115.0,10.79,N/A (not ranked),N/A (not ranked),N/A (not ranked),28.69
-M_AXGG,Axis Large & Mid Cap Fund,49,0.029,394.0,19.03,N/A (not ranked),N/A (not ranked),N/A (not ranked),26.98
-M_SBRU,SBI Large & Midcap Fund,50,0.026,697.0,16.67,N/A (not ranked),N/A (not ranked),N/A (not ranked),26.49
-M_FRED,Franklin India Large & Mid Cap Fund,51,0.01,697.0,13.91,N/A (not ranked),N/A (not ranked),N/A (not ranked),23.8
-M_BOLR,Bank of India Large & Mid Cap Fund,52,0.003,697.0,13.95,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.56
-M_HDOW,HDFC Large and Mid Cap Fund,53,0.0,697.0,13.39,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
-M_SACF,Samco Mid Cap Fund,54,0.0,85.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
-M_ICPIL,ICICI Pru Large & Mid Cap Fund,55,0.0,697.0,16.08,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
-M_BARD,Baroda BNP Paribas Large & Mid Cap Fund,56,0.0,297.0,20.94,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
-M_QSIO,Qsif Equity Ex-Top 100 Long-Short Fund,57,0.0,176.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
-M_TRFS,TRUSTMF Mid Cap Fund,58,0.0,43.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
-M_NISG,Nippon India Vision Large & Mid Cap Fund,59,0.0,697.0,14.02,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
-M_UNOO,Union Large & Midcap Fund,60,0.0,336.0,17.51,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
-M_UTICY,UTI Large & Mid Cap Fund,61,0.0,697.0,14.72,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
-M_ISIF,iSIF Equity Ex-Top 100 Long-Short Fund,62,0.0,92.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
-M_MOTG,Motilal Oswal Large & Midcap Fund,63,0.0,343.0,23.2,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
-M_MAHT,Mahindra Manulife Large & Mid Cap Fund,64,0.0,332.0,18.84,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
+M_INMI,Invesco India Midcap Fund,1,0.958,3834.0,24.86,86.38,77.52,81.22,63.88
+M_EDME,Edelweiss Mid Cap Fund,2,0.906,3834.0,24.57,70.52,79.28,83.26,60.51
+M_HDCMS,HDFC Mid Cap Fund,3,0.754,3834.0,22.51,77.21,79.75,66.56,40.24
+M_BNMP,Baroda BNP Paribas Mid Cap Fund,4,0.748,3834.0,21.57,62.12,67.64,64.37,57.29
+M_UNIA,Union Midcap Fund,5,0.728,1761.0,24.7,65.47,68.27,90.38,38.01
+M_KORY,Kotak Midcap Fund,6,0.728,3834.0,21.57,74.55,73.59,61.99,44.39
+M_ICPID,ICICI Pru Midcap Fund,7,0.704,3834.0,24.9,61.32,61.06,68.85,53.2
+M_LTIU,HSBC Midcap Fund,8,0.678,3834.0,25.44,61.92,54.29,61.0,58.08
+M_AXMI,Axis Midcap Fund,9,0.633,3834.0,19.34,58.54,68.61,61.54,40.49
+M_WOCD,WOC Mid Cap Fund,10,0.622,961.0,25.79,79.01,80.38,N/A (not ranked),46.03
+M_TAMW,Tata Mid Cap Fund,11,0.595,3834.0,20.9,47.43,53.29,54.44,55.44
+M_SBIAU,SBI Midcap Fund,12,0.536,3834.0,16.6,53.26,67.42,35.33,41.58
+M_MANC,Mahindra Manulife Mid Cap Fund,13,0.527,2377.0,23.15,52.52,56.96,39.77,46.52
+M_MIAI,Mirae Asset Midcap Fund,14,0.515,1948.0,22.4,42.41,57.8,77.22,28.96
+M_FRRN,Franklin India Mid Cap Fund,15,0.515,3834.0,19.61,32.86,64.68,40.84,47.21
+M_SUNIU,Sundaram Mid Cap Fund,16,0.513,3834.0,22.25,37.51,58.1,43.85,48.37
+M_NIGW,Nippon India Growth Mid Cap Fund,17,0.509,3834.0,23.28,50.37,66.18,38.8,37.73
+M_DSPMU,DSP Midcap Fund,18,0.441,3834.0,19.26,29.84,51.17,29.64,53.09
+M_ITMA,ITI Mid Cap Fund,19,0.41,1491.0,23.51,39.79,38.56,62.69,35.52
+M_CAMR,Canara Rob Mid Cap Fund,20,0.383,901.0,20.43,54.6,55.72,N/A (not ranked),37.47
+M_UTIMP,UTI Mid Cap Fund,21,0.38,3834.0,17.36,32.2,40.04,36.3,46.97
+M_MOLS,Motilal Oswal Midcap Fund,22,0.375,3504.0,20.97,51.65,42.26,45.64,30.01
+M_PGDO,PGIM India Midcap Fund,23,0.361,3570.0,15.35,25.52,51.4,29.58,41.58
+M_QUTD,Quant Mid Cap Fund,24,0.318,3829.0,18.19,60.38,37.64,22.83,32.01
+M_JMDL,JM Midcap Fund,25,0.316,906.0,24.88,50.35,43.15,N/A (not ranked),38.3
+M_IDCCL,Bandhan Midcap Fund,26,0.286,976.0,20.61,46.96,46.18,N/A (not ranked),32.49
+M_HEIP,Helios Mid Cap Fund,27,0.231,421.0,N/A (insufficient history),64.44,37.16,N/A (not ranked),N/A (not ranked)
+M_TACV,Taurus Mid Cap Fund,28,0.22,3834.0,14.93,21.02,27.75,15.94,46.08
+M_ADTMI,Aditya Birla SL Midcap Fund,29,0.213,3834.0,19.07,17.6,33.88,23.48,37.83
+M_INCW,Invesco India Large & Mid Cap Fund,30,0.185,698.0,17.44,N/A (not ranked),N/A (not ranked),N/A (not ranked),52.96
+M_QUNL,Quant Large & Mid Cap Fund,31,0.15,697.0,18.03,N/A (not ranked),N/A (not ranked),N/A (not ranked),47.18
+M_MISM,Mirae Asset Large & Midcap Fund,32,0.13,698.0,20.48,N/A (not ranked),N/A (not ranked),N/A (not ranked),43.81
+M_DSIY,DSP Large & Mid Cap Fund,33,0.119,698.0,16.06,N/A (not ranked),N/A (not ranked),N/A (not ranked),41.88
+M_CAOP,Canara Rob Large and Mid Cap Fund,34,0.118,698.0,18.82,N/A (not ranked),N/A (not ranked),N/A (not ranked),41.81
+M_IDIC,LIC MF Midcap Fund,35,0.116,2668.0,18.33,7.07,29.05,11.18,36.91
+M_ADTQV,Aditya Birla SL Large & Mid Cap Fund,36,0.108,698.0,14.46,N/A (not ranked),N/A (not ranked),N/A (not ranked),40.13
+M_ESLI,Navi Large & Midcap Fund,37,0.106,545.0,14.86,N/A (not ranked),N/A (not ranked),N/A (not ranked),39.81
+M_BANOU,Bank of India Mid Cap Fund,38,0.104,260.0,N/A (insufficient history),35.89,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_EDAA,Edelweiss Large & Mid Cap Fund,39,0.103,698.0,15.87,N/A (not ranked),N/A (not ranked),N/A (not ranked),39.27
+M_WOLR,WOC Large & Mid Cap Fund,40,0.091,126.0,13.86,N/A (not ranked),N/A (not ranked),N/A (not ranked),37.26
+M_HSLA,HSBC Large & Mid Cap Fund,41,0.088,373.0,17.15,N/A (not ranked),N/A (not ranked),N/A (not ranked),36.79
+M_LIFC,LIC MF Large & Midcap Fund,42,0.086,586.0,13.89,N/A (not ranked),N/A (not ranked),N/A (not ranked),36.35
+M_KOEO,Kotak Large & Midcap Fund,43,0.085,698.0,16.42,N/A (not ranked),N/A (not ranked),N/A (not ranked),36.16
+M_IDFOC,Bandhan Large & Mid Cap Fund,44,0.069,698.0,15.69,N/A (not ranked),N/A (not ranked),N/A (not ranked),33.58
+M_PGPL,PGIM India Large and Mid Cap Fund,45,0.066,118.0,9.7,N/A (not ranked),N/A (not ranked),N/A (not ranked),33.1
+M_TATAU,Tata Large & Mid Cap Fund,46,0.061,698.0,14.59,N/A (not ranked),N/A (not ranked),N/A (not ranked),32.16
+M_SUNLA,Sundaram Large and Mid Cap Fund,47,0.049,697.0,14.78,N/A (not ranked),N/A (not ranked),N/A (not ranked),30.22
+M_BAJAL,Bajaj Finserv Large and Mid Cap Fund,48,0.033,116.0,9.39,N/A (not ranked),N/A (not ranked),N/A (not ranked),27.45
+M_AXGG,Axis Large & Mid Cap Fund,49,0.029,395.0,18.69,N/A (not ranked),N/A (not ranked),N/A (not ranked),26.83
+M_SBRU,SBI Large & Midcap Fund,50,0.019,698.0,16.48,N/A (not ranked),N/A (not ranked),N/A (not ranked),25.24
+M_FRED,Franklin India Large & Mid Cap Fund,51,0.01,698.0,13.7,N/A (not ranked),N/A (not ranked),N/A (not ranked),23.74
+M_BOLR,Bank of India Large & Mid Cap Fund,52,0.008,698.0,13.79,N/A (not ranked),N/A (not ranked),N/A (not ranked),23.34
+M_UTICY,UTI Large & Mid Cap Fund,53,0.0,698.0,14.49,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
+M_UNOO,Union Large & Midcap Fund,54,0.0,337.0,17.02,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
+M_BARD,Baroda BNP Paribas Large & Mid Cap Fund,55,0.0,298.0,20.36,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
+M_TRFS,TRUSTMF Mid Cap Fund,56,0.0,50.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_MAHT,Mahindra Manulife Large & Mid Cap Fund,57,0.0,333.0,18.35,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
+M_MOTG,Motilal Oswal Large & Midcap Fund,58,0.0,344.0,22.67,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
+M_SACF,Samco Mid Cap Fund,59,0.0,92.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_ICPIL,ICICI Pru Large & Mid Cap Fund,60,0.0,698.0,15.82,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
+M_QSIO,Qsif Equity Ex-Top 100 Long-Short Fund,61,0.0,183.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_ISIF,iSIF Equity Ex-Top 100 Long-Short Fund,62,0.0,99.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_NISG,Nippon India Vision Large & Mid Cap Fund,63,0.0,698.0,13.85,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
+M_HDOW,HDFC Large and Mid Cap Fund,64,0.0,698.0,13.16,N/A (not ranked),N/A (not ranked),N/A (not ranked),22.0
