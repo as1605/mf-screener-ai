@@ -45,7 +45,7 @@ def process_category(category: str, dates: list[str]):
             ),
             how="left"
         )
-    df.to_csv(f"results/race/{category}.csv")
+    df.to_csv(f"results/ranks/{category}.csv")
 
 def main():
     dates = get_dates()
