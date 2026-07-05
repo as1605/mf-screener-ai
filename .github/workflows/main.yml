@@ -1,0 +1,51 @@
+name: Run Weekly Analysis
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "0 6 * * 2"
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Make script executable
+        run: chmod +x run.sh
+
+      - name: Run script
+        run: ./run.sh "$(date -u -d 'yesterday' +%F)"
+
+      - name: Commit and push if changed
+        run: |
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Auto update ($(date -u +'%Y-%m-%d %H:%M UTC'))"
+          git push origin main
