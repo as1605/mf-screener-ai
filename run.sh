@@ -134,7 +134,7 @@ if [[ -n "$BRANCH" ]]; then
   echo "========================================"
   echo "  GIT: commit & push $BRANCH"
   echo "========================================"
-  git add -A
+  git add results/
   if git diff --cached --quiet; then
     echo "Nothing to commit (working tree clean after run)."
   else
@@ -143,3 +143,12 @@ if [[ -n "$BRANCH" ]]; then
   git push -u origin "$BRANCH"
   echo "Pushed $BRANCH"
 fi
+
+echo "========================================"
+echo "  Compiling ranks"
+echo "========================================"
+git checkout main
+python3 src/compile_ranks.py
+git add results/ranks
+git commit -m "Updated ranks for $RUN_DATE"
+git push -u origin main
