@@ -1,37 +1,37 @@
-mfId,name,2026-05-11,2026-05-18,2026-05-25,2026-06-01,2026-06-07,2026-06-15,2026-06-22,2026-06-29
-M_SBTO,SBI Multi Asset Allocation Fund,1,1,1,1,1,1,1,1
-M_DSPUI,DSP Multi Asset Allocation Fund,2,2,2,2,2,2,2,2
-M_NIPU,Nippon India Multi Asset Allocation Fund,3,3,3,3,3,3,3,3
-M_ADYUO,Aditya Birla SL Multi Asset Allocation Fund,4,4,4,4,5,4,4,4
-M_BANHP,Bandhan Multi Asset Allocation Fund,5,9,8,7,10,9,7,5
-M_QUNS,Quant Multi Asset Allocation Fund,6,5,5,5,4,6,5,6
-M_KOTUU,Kotak Multi Asset Allocation Fund,7,6,6,6,7,12,12,11
-M_TATI,Tata Multi Asset Allocation Fund,8,11,11,11,13,11,9,9
-M_WOMT,WOC Multi Asset Allocation Fund,9,7,7,10,8,10,10,10
-M_ICPPP,ICICI Pru Multi-Asset Fund,10,8,9,9,6,7,8,7
-M_INVIP,Invesco India Multi Asset Allocation Fund,11,10,10,8,11,5,6,8
-M_HDCUU,HDFC Multi-Asset Allocation Fund,12,12,12,13,9,8,13,13
-M_MAAO,Mahindra Manulife Multi Asset Allocation Fund,13,13,13,12,12,13,11,12
-M_MIUD,Mirae Asset Multi Asset Allocation Fund,14,14,14,14,15,14,14,14
-M_UTIMA,UTI Multi Asset Allocation Fund,15,15,15,15,14,15,16,15
-M_AXPU,Axis Multi Asset Allocation Fund,16,16,16,17,16,16,19,17
-M_EDMU,Edelweiss Multi Asset Allocation Fund,17,20,20,20,17,20,20,20
-M_SUDUO,Sundaram Multi Asset Allocation Fund,18,17,17,16,18,17,18,18
-M_BAJAO,Bajaj Finserv Multi Asset Allocation Fund,19,22,22,22,22,21,22,21
-M_QUUC,Quantum Multi Asset Allocation Fund,20,19,19,19,19,18,21,23
-M_UNUN,Union Multi Asset Allocation Fund,21,18,18,18,20,19,17,16
-M_SACM,Samco Multi Asset Allocation Fund,22,21,21,21,21,22,15,19
-M_BANKD,Bank of India Multi Asset Allocation Fund,23,25,25,25,26,26,26,24
-M_BABL,Baroda BNP Paribas Multi Asset Fund,24,23,23,24,23,23,23,22
-M_360P,360 ONE Multi Asset Allocation Fund,25,24,24,23,24,24,28,29
-M_HSAO,HSBC Multi Asset Allocation Fund,26,27,27,26,27,29,27,30
-M_LIEG,LIC MF Multi Asset Allocation Fund,27,26,26,28,28,28,30,26
-M_CAUS,Canara Rob Multi Asset Allocation Fund,28,28,28,29,31,27,24,27
-M_SHRS,Shriram Multi Asset Allocation Fund,29,29,29,30,30,31,32,32
-M_FRANS,Franklin India Multi Asset Allocation Fund,30,30,30,31,33,32,29,31
-M_GRMO,Groww Multi Asset Allocation Fund,31,31,31,32,32,33,33,33
-M_THWY,The Wealth Company Multi Asset Allocation Fund,32,32,32,33,25,25,25,25
-M_PGTS,PGIM India Multi Asset Allocation Fund,33,33,33,27,29,30,31,28
-M_QSIC,Qsif Active Asset Allocator Long-Short Fund,34,34,34,34,34,34,34,34
-M_DYNR,DynaSIF Active Asset Allocator Long-Short Fund,35,35,35,36,36,35,35,35
-M_CAPS,Capitalmind Multi Asset Allocation Fund,36,36,36,35,35,36,36,36
+mfId,name,2026-05-11,2026-05-18,2026-05-25,2026-06-01,2026-06-07,2026-06-15,2026-06-22,2026-06-29,2026-07-06,2026-07-13
+M_SBTO,SBI Multi Asset Allocation Fund,1,1,1,1,1,1,1,1,2,2
+M_DSPUI,DSP Multi Asset Allocation Fund,2,2,2,2,2,2,2,2,1,1
+M_NIPU,Nippon India Multi Asset Allocation Fund,3,3,3,3,3,3,3,3,3,3
+M_ADYUO,Aditya Birla SL Multi Asset Allocation Fund,4,4,4,4,5,4,4,4,4,4
+M_BANHP,Bandhan Multi Asset Allocation Fund,5,9,8,7,10,9,7,5,8,7
+M_QUNS,Quant Multi Asset Allocation Fund,6,5,5,5,4,6,5,6,6,5
+M_KOTUU,Kotak Multi Asset Allocation Fund,7,6,6,6,7,12,12,11,9,8
+M_TATI,Tata Multi Asset Allocation Fund,8,11,11,11,13,11,9,9,12,12
+M_WOMT,WOC Multi Asset Allocation Fund,9,7,7,10,8,10,10,10,7,9
+M_ICPPP,ICICI Pru Multi-Asset Fund,10,8,9,9,6,7,8,7,10,11
+M_INVIP,Invesco India Multi Asset Allocation Fund,11,10,10,8,11,5,6,8,5,6
+M_HDCUU,HDFC Multi-Asset Allocation Fund,12,12,12,13,9,8,13,13,13,14
+M_MAAO,Mahindra Manulife Multi Asset Allocation Fund,13,13,13,12,12,13,11,12,11,10
+M_MIUD,Mirae Asset Multi Asset Allocation Fund,14,14,14,14,15,14,14,14,14,13
+M_UTIMA,UTI Multi Asset Allocation Fund,15,15,15,15,14,15,16,15,15,15
+M_AXPU,Axis Multi Asset Allocation Fund,16,16,16,17,16,16,19,17,16,16
+M_EDMU,Edelweiss Multi Asset Allocation Fund,17,20,20,20,17,20,20,20,20,20
+M_SUDUO,Sundaram Multi Asset Allocation Fund,18,17,17,16,18,17,18,18,18,18
+M_BAJAO,Bajaj Finserv Multi Asset Allocation Fund,19,22,22,22,22,21,22,21,19,19
+M_QUUC,Quantum Multi Asset Allocation Fund,20,19,19,19,19,18,21,23,23,23
+M_UNUN,Union Multi Asset Allocation Fund,21,18,18,18,20,19,17,16,17,17
+M_SACM,Samco Multi Asset Allocation Fund,22,21,21,21,21,22,15,19,22,22
+M_BANKD,Bank of India Multi Asset Allocation Fund,23,25,25,25,26,26,26,24,25,24
+M_BABL,Baroda BNP Paribas Multi Asset Fund,24,23,23,24,23,23,23,22,21,21
+M_360P,360 ONE Multi Asset Allocation Fund,25,24,24,23,24,24,28,29,29,28
+M_HSAO,HSBC Multi Asset Allocation Fund,26,27,27,26,27,29,27,30,28,29
+M_LIEG,LIC MF Multi Asset Allocation Fund,27,26,26,28,28,28,30,26,26,26
+M_CAUS,Canara Rob Multi Asset Allocation Fund,28,28,28,29,31,27,24,27,24,25
+M_SHRS,Shriram Multi Asset Allocation Fund,29,29,29,30,30,31,32,32,32,31
+M_FRANS,Franklin India Multi Asset Allocation Fund,30,30,30,31,33,32,29,31,31,32
+M_GRMO,Groww Multi Asset Allocation Fund,31,31,31,32,32,33,33,33,33,33
+M_THWY,The Wealth Company Multi Asset Allocation Fund,32,32,32,33,25,25,25,25,27,27
+M_PGTS,PGIM India Multi Asset Allocation Fund,33,33,33,27,29,30,31,28,30,30
+M_QSIC,Qsif Active Asset Allocator Long-Short Fund,34,34,34,34,34,34,34,34,37,37
+M_DYNR,DynaSIF Active Asset Allocator Long-Short Fund,35,35,35,36,36,35,35,35,35,35
+M_CAPS,Capitalmind Multi Asset Allocation Fund,36,36,36,35,35,36,36,36,36,36
