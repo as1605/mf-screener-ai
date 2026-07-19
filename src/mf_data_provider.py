@@ -259,7 +259,7 @@ class MfDataProvider:
         Raises:
             APIError: If API call fails
         """
-        mf_file = os.path.join(self.data_dir, 'mf', f'{mf_id}.csv')
+        mf_file = os.path.join(self.data_dir, 'mf', f'{mf_id}_{duration}.csv')
         
         # Return cached data if available and not forcing refresh
         if os.path.exists(mf_file) and not force_refresh:
