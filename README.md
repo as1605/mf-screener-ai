@@ -6,7 +6,7 @@ A vibecoding project to analyze mutual funds using AI-generated strategies. This
 
 *   [**Tasks Overview**](docs/TASKS.md): Explanation of how the repo was made and what each task does.
 *   [**Setup Guide**](docs/SETUP.md): How to setup the project for development.
-*   **Experiments**: Ad-hoc analysis of the data, currently on SIFs and Focused funds
+*   [**Experiments**](docs/EXPERIMENTS.md): Ad-hoc analysis of the data, currently on SIFs and Focused funds
 *   [**Algorithms**](docs/ALGORITHMS.md): Introduction to the AI-generated strategies.
     *   [Small Cap Strategy](docs/algorithms/Small%20Cap.md)
     *   [Mid Cap Strategy](docs/algorithms/Mid%20Cap.md)
