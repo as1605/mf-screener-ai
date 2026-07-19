@@ -245,7 +245,7 @@ class MfDataProvider:
         
         return df
     
-    def fetch_mf_chart(self, mf_id: str, force_refresh: bool = False) -> pd.DataFrame:
+    def fetch_mf_chart(self, mf_id: str, duration: str = 'max', force_refresh: bool = False) -> pd.DataFrame:
         """
         Fetch historical chart data for a specific mutual fund.
         
@@ -269,7 +269,7 @@ class MfDataProvider:
         logger.info(f"Fetching chart data for mutual fund: {mf_id}")
         
         url = self.MF_CHART_URL.format(mfId=mf_id)
-        params = {'duration': 'max'}
+        params = {'duration': duration}
         
         data = self._make_request('GET', url, params=params)
         
@@ -583,13 +583,13 @@ class MfDataProvider:
         
         return result
     
-    def get_mf_chart(self, mf_id: str) -> pd.DataFrame:
+    def get_mf_chart(self, mf_id: str, duration: str = 'max') -> pd.DataFrame:
         """
         Get historical chart data for a specific mutual fund.
         
         Args:
             mf_id (str): Mutual fund ID (e.g., 'M_PARO')
-        
+            duration (str): Duration of the chart data (e.g., '5y', '1y', '3m', '1m', 'max')
         Returns:
             pd.DataFrame: DataFrame with columns [timestamp, nav]
         
@@ -598,11 +598,11 @@ class MfDataProvider:
         
         Example:
             >>> provider = MfDataProvider()
-            >>> df = provider.get_mf_chart('M_PARO')
+            >>> df = provider.get_mf_chart('M_PARO', duration='5y')
             >>> print(df.tail())
         """
         try:
-            return self.fetch_mf_chart(mf_id, force_refresh=False)
+            return self.fetch_mf_chart(mf_id, duration=duration, force_refresh=False)
         except APIError as e:
             raise DataNotFoundError(f"Failed to get chart for {mf_id}: {str(e)}") from e
     
