@@ -1,0 +1,42 @@
+name: Run Monthly SIF Analysis
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "0 0 1 * *"
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run SIF analysis
+        run: python src/experiments/sif.py
+      
+      - name: Commit and push results
+        run: |
+          git add results/experiments/sif_nav.csv results/experiments/sif_3m.csv results/experiments/sif_6m.csv
+          git commit -m "Update SIF analysis"
+          git push
