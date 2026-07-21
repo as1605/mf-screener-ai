@@ -1,65 +1,65 @@
-mfId,name,2026-05-11,2026-05-18,2026-05-25,2026-06-01,2026-06-07,2026-06-15,2026-06-22,2026-06-29,2026-07-06,2026-07-13
-M_INMI,Invesco India Midcap Fund,1,1,1,1,1,1,1,1,1,1
-M_EDME,Edelweiss Mid Cap Fund,2,2,2,2,2,2,2,2,2,2
-M_HDCMS,HDFC Mid Cap Fund,3,3,4,4,4,4,7,8,7,6
-M_BNMP,Baroda BNP Paribas Mid Cap Fund,4,4,3,3,5,3,3,3,4,4
-M_UNIA,Union Midcap Fund,5,6,5,5,6,5,6,5,6,5
-M_KORY,Kotak Midcap Fund,6,5,6,7,7,6,5,6,3,3
-M_ICPID,ICICI Pru Midcap Fund,7,7,8,8,8,8,8,7,8,8
-M_LTIU,HSBC Midcap Fund,8,8,7,6,3,7,4,4,5,7
-M_AXMI,Axis Midcap Fund,9,9,9,9,9,9,9,9,9,10
-M_WOCD,WOC Mid Cap Fund,10,10,10,10,10,10,10,10,10,9
-M_TAMW,Tata Mid Cap Fund,11,11,11,11,11,11,12,12,12,11
-M_SBIAU,SBI Midcap Fund,12,12,12,13,13,13,13,13,14,14
-M_MANC,Mahindra Manulife Mid Cap Fund,13,13,13,12,12,12,11,11,11,13
-M_MIAI,Mirae Asset Midcap Fund,14,16,15,15,14,15,15,15,13,12
-M_FRRN,Franklin India Mid Cap Fund,15,17,14,14,16,14,16,16,15,15
-M_SUNIU,Sundaram Mid Cap Fund,16,15,17,17,17,17,17,17,17,16
-M_NIGW,Nippon India Growth Mid Cap Fund,17,14,16,16,15,16,14,14,16,17
-M_DSPMU,DSP Midcap Fund,18,18,18,19,18,18,18,18,18,20
-M_ITMA,ITI Mid Cap Fund,19,19,19,21,20,21,20,19,19,19
-M_CAMR,Canara Rob Mid Cap Fund,20,22,22,22,23,22,19,20,21,21
-M_UTIMP,UTI Mid Cap Fund,21,21,20,20,19,20,21,24,22,23
-M_MOLS,Motilal Oswal Midcap Fund,22,20,21,18,21,19,22,23,20,18
-M_PGDO,PGIM India Midcap Fund,23,23,23,25,24,24,24,25,24,22
-M_QUTD,Quant Mid Cap Fund,24,24,24,23,25,25,25,21,25,25
-M_JMDL,JM Midcap Fund,25,25,25,24,22,23,23,22,23,24
-M_IDCCL,Bandhan Midcap Fund,26,26,26,26,26,26,26,26,26,26
-M_HEIP,Helios Mid Cap Fund,27,27,27,27,27,27,27,27,27,27
-M_TACV,Taurus Mid Cap Fund,28,28,29,29,29,29,29,30,29,29
-M_ADTMI,Aditya Birla SL Midcap Fund,29,29,28,28,28,28,28,28,28,28
-M_INCW,Invesco India Large & Mid Cap Fund,30,30,30,30,30,30,30,29,30,30
-M_QUNL,Quant Large & Mid Cap Fund,31,31,31,31,31,31,32,32,32,33
-M_MISM,Mirae Asset Large & Midcap Fund,32,32,32,32,32,32,33,34,34,34
-M_DSIY,DSP Large & Mid Cap Fund,33,34,34,34,34,34,37,38,38,43
-M_CAOP,Canara Rob Large and Mid Cap Fund,34,33,33,35,35,36,35,35,35,42
-M_IDIC,LIC MF Midcap Fund,35,35,35,33,33,33,31,31,31,41
-M_ADTQV,Aditya Birla SL Large & Mid Cap Fund,36,36,37,36,37,37,36,36,36,31
-M_ESLI,Navi Large & Midcap Fund,37,37,36,37,36,35,38,39,37,44
-M_BANOU,Bank of India Mid Cap Fund,38,43,41,45,44,41,40,42,43,45
-M_EDAA,Edelweiss Large & Mid Cap Fund,39,38,38,39,39,38,41,41,41,35
-M_WOLR,WOC Large & Mid Cap Fund,40,39,40,40,40,40,43,43,42,38
-M_HSLA,HSBC Large & Mid Cap Fund,41,40,39,38,38,39,39,37,39,40
-M_LIFC,LIC MF Large & Midcap Fund,42,41,42,41,41,42,42,40,40,46
-M_KOEO,Kotak Large & Midcap Fund,43,42,43,42,42,43,44,44,44,39
-M_IDFOC,Bandhan Large & Mid Cap Fund,44,44,44,43,43,46,46,45,47,49
-M_PGPL,PGIM India Large and Mid Cap Fund,45,45,45,48,48,49,47,47,48,36
-M_TATAU,Tata Large & Mid Cap Fund,46,46,46,46,45,48,48,48,49,37
-M_SUNLA,Sundaram Large and Mid Cap Fund,47,47,47,47,47,47,45,46,46,48
-M_BAJAL,Bajaj Finserv Large and Mid Cap Fund,48,48,49,50,49,50,49,50,50,52
-M_AXGG,Axis Large & Mid Cap Fund,49,49,48,44,50,44,50,49,45,47
-M_SBRU,SBI Large & Midcap Fund,50,50,50,49,51,51,51,51,51,51
-M_FRED,Franklin India Large & Mid Cap Fund,51,52,51,51,53,53,59,53,53,58
-M_BOLR,Bank of India Large & Mid Cap Fund,52,51,52,52,52,52,52,52,52,55
-M_UTICY,UTI Large & Mid Cap Fund,53,61,61,53,55,56,56,56,63,63
-M_UNOO,Union Large & Midcap Fund,54,60,60,54,56,57,57,57,64,64
-M_BARD,Baroda BNP Paribas Large & Mid Cap Fund,55,56,56,55,57,55,55,58,55,56
-M_TRFS,TRUSTMF Mid Cap Fund,56,58,58,56,54,59,54,54,65,65
-M_MAHT,Mahindra Manulife Large & Mid Cap Fund,57,64,64,64,64,64,63,65,61,60
-M_MOTG,Motilal Oswal Large & Midcap Fund,58,63,54,57,58,60,64,60,59,50
-M_SACF,Samco Mid Cap Fund,59,54,55,61,62,62,61,63,62,62
-M_ICPIL,ICICI Pru Large & Mid Cap Fund,60,55,57,60,61,61,60,62,56,54
-M_QSIO,Qsif Equity Ex-Top 100 Long-Short Fund,61,57,59,63,46,45,34,33,33,32
-M_ISIF,iSIF Equity Ex-Top 100 Long-Short Fund,62,62,62,62,63,63,62,64,54,59
-M_NISG,Nippon India Vision Large & Mid Cap Fund,63,59,63,58,59,54,53,59,60,61
-M_HDOW,HDFC Large and Mid Cap Fund,64,53,53,59,60,58,58,61,57,53
+mfId,name,2026-05-11,2026-05-18,2026-05-25,2026-06-01,2026-06-07,2026-06-15,2026-06-22,2026-06-29,2026-07-06,2026-07-13,2026-07-20
+M_INMI,Invesco India Midcap Fund,1,1,1,1,1,1,1,1,1,1,1
+M_EDME,Edelweiss Mid Cap Fund,2,2,2,2,2,2,2,2,2,2,2
+M_HDCMS,HDFC Mid Cap Fund,3,3,4,4,4,4,7,8,7,6,6
+M_BNMP,Baroda BNP Paribas Mid Cap Fund,4,4,3,3,5,3,3,3,4,4,3
+M_UNIA,Union Midcap Fund,5,6,5,5,6,5,6,5,6,5,4
+M_KORY,Kotak Midcap Fund,6,5,6,7,7,6,5,6,3,3,5
+M_ICPID,ICICI Pru Midcap Fund,7,7,8,8,8,8,8,7,8,8,8
+M_LTIU,HSBC Midcap Fund,8,8,7,6,3,7,4,4,5,7,7
+M_AXMI,Axis Midcap Fund,9,9,9,9,9,9,9,9,9,10,9
+M_WOCD,WOC Mid Cap Fund,10,10,10,10,10,10,10,10,10,9,10
+M_TAMW,Tata Mid Cap Fund,11,11,11,11,11,11,12,12,12,11,12
+M_SBIAU,SBI Midcap Fund,12,12,12,13,13,13,13,13,14,14,14
+M_MANC,Mahindra Manulife Mid Cap Fund,13,13,13,12,12,12,11,11,11,13,13
+M_MIAI,Mirae Asset Midcap Fund,14,16,15,15,14,15,15,15,13,12,11
+M_FRRN,Franklin India Mid Cap Fund,15,17,14,14,16,14,16,16,15,15,15
+M_SUNIU,Sundaram Mid Cap Fund,16,15,17,17,17,17,17,17,17,16,16
+M_NIGW,Nippon India Growth Mid Cap Fund,17,14,16,16,15,16,14,14,16,17,18
+M_DSPMU,DSP Midcap Fund,18,18,18,19,18,18,18,18,18,20,21
+M_ITMA,ITI Mid Cap Fund,19,19,19,21,20,21,20,19,19,19,19
+M_CAMR,Canara Rob Mid Cap Fund,20,22,22,22,23,22,19,20,21,21,20
+M_UTIMP,UTI Mid Cap Fund,21,21,20,20,19,20,21,24,22,23,22
+M_MOLS,Motilal Oswal Midcap Fund,22,20,21,18,21,19,22,23,20,18,17
+M_PGDO,PGIM India Midcap Fund,23,23,23,25,24,24,24,25,24,22,24
+M_QUTD,Quant Mid Cap Fund,24,24,24,23,25,25,25,21,25,25,25
+M_JMDL,JM Midcap Fund,25,25,25,24,22,23,23,22,23,24,23
+M_IDCCL,Bandhan Midcap Fund,26,26,26,26,26,26,26,26,26,26,26
+M_HEIP,Helios Mid Cap Fund,27,27,27,27,27,27,27,27,27,27,27
+M_TACV,Taurus Mid Cap Fund,28,28,29,29,29,29,29,30,29,29,28
+M_ADTMI,Aditya Birla SL Midcap Fund,29,29,28,28,28,28,28,28,28,28,29
+M_INCW,Invesco India Large & Mid Cap Fund,30,30,30,30,30,30,30,29,30,30,30
+M_QUNL,Quant Large & Mid Cap Fund,31,31,31,31,31,31,32,32,32,33,32
+M_MISM,Mirae Asset Large & Midcap Fund,32,32,32,32,32,32,33,34,34,34,33
+M_DSIY,DSP Large & Mid Cap Fund,33,34,34,34,34,34,37,38,38,43,38
+M_CAOP,Canara Rob Large and Mid Cap Fund,34,33,33,35,35,36,35,35,35,42,35
+M_IDIC,LIC MF Midcap Fund,35,35,35,33,33,33,31,31,31,41,34
+M_ADTQV,Aditya Birla SL Large & Mid Cap Fund,36,36,37,36,37,37,36,36,36,31,37
+M_ESLI,Navi Large & Midcap Fund,37,37,36,37,36,35,38,39,37,44,41
+M_BANOU,Bank of India Mid Cap Fund,38,43,41,45,44,41,40,42,43,45,42
+M_EDAA,Edelweiss Large & Mid Cap Fund,39,38,38,39,39,38,41,41,41,35,36
+M_WOLR,WOC Large & Mid Cap Fund,40,39,40,40,40,40,43,43,42,38,43
+M_HSLA,HSBC Large & Mid Cap Fund,41,40,39,38,38,39,39,37,39,40,40
+M_LIFC,LIC MF Large & Midcap Fund,42,41,42,41,41,42,42,40,40,46,39
+M_KOEO,Kotak Large & Midcap Fund,43,42,43,42,42,43,44,44,44,39,44
+M_IDFOC,Bandhan Large & Mid Cap Fund,44,44,44,43,43,46,46,45,47,49,48
+M_PGPL,PGIM India Large and Mid Cap Fund,45,45,45,48,48,49,47,47,48,36,46
+M_TATAU,Tata Large & Mid Cap Fund,46,46,46,46,45,48,48,48,49,37,49
+M_SUNLA,Sundaram Large and Mid Cap Fund,47,47,47,47,47,47,45,46,46,48,45
+M_BAJAL,Bajaj Finserv Large and Mid Cap Fund,48,48,49,50,49,50,49,50,50,52,50
+M_AXGG,Axis Large & Mid Cap Fund,49,49,48,44,50,44,50,49,45,47,47
+M_SBRU,SBI Large & Midcap Fund,50,50,50,49,51,51,51,51,51,51,52
+M_FRED,Franklin India Large & Mid Cap Fund,51,52,51,51,53,53,59,53,53,58,59
+M_BOLR,Bank of India Large & Mid Cap Fund,52,51,52,52,52,52,52,52,52,55,57
+M_UTICY,UTI Large & Mid Cap Fund,53,61,61,53,55,56,56,56,63,63,64
+M_UNOO,Union Large & Midcap Fund,54,60,60,54,56,57,57,57,64,64,65
+M_BARD,Baroda BNP Paribas Large & Mid Cap Fund,55,56,56,55,57,55,55,58,55,56,53
+M_TRFS,TRUSTMF Mid Cap Fund,56,58,58,56,54,59,54,54,65,65,66
+M_MAHT,Mahindra Manulife Large & Mid Cap Fund,57,64,64,64,64,64,63,65,61,60,61
+M_MOTG,Motilal Oswal Large & Midcap Fund,58,63,54,57,58,60,64,60,59,50,51
+M_SACF,Samco Mid Cap Fund,59,54,55,61,62,62,61,63,62,62,63
+M_ICPIL,ICICI Pru Large & Mid Cap Fund,60,55,57,60,61,61,60,62,56,54,55
+M_QSIO,Qsif Equity Ex-Top 100 Long-Short Fund,61,57,59,63,46,45,34,33,33,32,31
+M_ISIF,iSIF Equity Ex-Top 100 Long-Short Fund,62,62,62,62,63,63,62,64,54,59,60
+M_NISG,Nippon India Vision Large & Mid Cap Fund,63,59,63,58,59,54,53,59,60,61,62
+M_HDOW,HDFC Large and Mid Cap Fund,64,53,53,59,60,58,58,61,57,53,58
