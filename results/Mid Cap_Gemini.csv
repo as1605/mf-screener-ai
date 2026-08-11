@@ -1,26 +1,26 @@
 mfId,name,rank,score,data_days,cagr_3y,cagr_5y,win_rate,swing_elasticity
-M_UNIA,Union Midcap Fund,1,88.89,2324,19.04%,16.95%,91.67%,0.0
-M_INMI,Invesco India Midcap Fund,2,87.28,4963,26.58%,21.25%,66.67%,0.0
-M_MIAI,Mirae Asset Midcap Fund,3,84.53,2555,18.44%,16.83%,100.0%,0.0
-M_ITMA,ITI Mid Cap Fund,4,71.66,1981,23.28%,17.44%,75.0%,0.0
-M_LTIU,HSBC Midcap Fund,5,70.58,4963,25.85%,19.42%,100.0%,0.0
-M_EDME,Edelweiss Mid Cap Fund,6,65.12,4963,23.9%,19.91%,100.0%,0.0
-M_AXMI,Axis Midcap Fund,7,63.66,4963,18.58%,15.01%,66.67%,0.0
-M_MANC,Mahindra Manulife Mid Cap Fund,8,60.67,3108,22.78%,19.41%,58.33%,0.0
-M_KORY,Kotak Midcap Fund,9,58.67,4963,20.48%,18.09%,75.0%,0.0
-M_MOLS,Motilal Oswal Midcap Fund,10,57.54,4543,20.48%,23.12%,8.33%,0.0
-M_BNMP,Baroda BNP Paribas Mid Cap Fund,11,57.16,4963,20.09%,16.73%,66.67%,0.0
-M_ICPID,ICICI Pru Midcap Fund,12,49.65,4963,23.7%,18.3%,100.0%,0.0
-M_HDCMS,HDFC Mid Cap Fund,13,47.4,4963,20.72%,20.69%,75.0%,0.0
-M_QUTD,Quant Mid Cap Fund,14,44.44,4949,14.5%,16.99%,33.33%,0.0
-M_TAMW,Tata Mid Cap Fund,15,39.98,4963,17.89%,16.59%,83.33%,0.0
-M_UTIMP,UTI Mid Cap Fund,16,39.58,4963,14.13%,13.49%,8.33%,0.0
-M_SUNIU,Sundaram Mid Cap Fund,17,38.87,4963,22.11%,19.16%,83.33%,0.0
-M_IDIC,LIC MF Midcap Fund,18,32.06,3472,18.08%,13.85%,16.67%,0.0
-M_FRRN,Franklin India Mid Cap Fund,19,31.95,4963,18.66%,15.62%,8.33%,0.0
-M_TACV,Taurus Mid Cap Fund,20,30.03,4963,12.2%,12.86%,16.67%,0.0
-M_ADTMI,Aditya Birla SL Midcap Fund,21,29.77,4956,17.53%,15.28%,41.67%,0.0
-M_SBIAU,SBI Midcap Fund,22,29.26,4956,13.28%,15.0%,0.0%,0.0
-M_PGDO,PGIM India Midcap Fund,23,27.55,4627,13.31%,12.7%,16.67%,0.0
-M_NIGW,Nippon India Growth Mid Cap Fund,24,25.22,4963,22.11%,20.06%,83.33%,0.0
-M_DSPMU,DSP Midcap Fund,25,17.77,4963,17.2%,13.07%,41.67%,0.0
+M_UNIA,Union Midcap Fund,1,82.12,2331,19.43%,17.16%,91.67%,0.0
+M_INMI,Invesco India Midcap Fund,2,81.12,4963,26.03%,21.25%,66.67%,0.0
+M_ITMA,ITI Mid Cap Fund,3,79.09,1988,23.1%,17.76%,75.0%,0.0
+M_MIAI,Mirae Asset Midcap Fund,4,77.96,2569,18.52%,17.12%,100.0%,0.0
+M_LTIU,HSBC Midcap Fund,5,73.5,4970,26.02%,20.0%,100.0%,0.0
+M_MANC,Mahindra Manulife Mid Cap Fund,6,65.16,3115,22.31%,19.93%,58.33%,0.0
+M_MOLS,Motilal Oswal Midcap Fund,7,63.02,4550,21.33%,23.31%,8.33%,0.0
+M_EDME,Edelweiss Mid Cap Fund,8,59.93,4963,23.55%,20.03%,100.0%,0.0
+M_AXMI,Axis Midcap Fund,9,55.07,4970,18.5%,15.11%,66.67%,0.0
+M_ICPID,ICICI Pru Midcap Fund,10,54.97,4970,24.04%,18.94%,100.0%,0.0
+M_BNMP,Baroda BNP Paribas Mid Cap Fund,11,54.19,4970,19.61%,17.0%,66.67%,0.0
+M_KORY,Kotak Midcap Fund,12,50.96,4970,20.01%,18.34%,75.0%,0.0
+M_QUTD,Quant Mid Cap Fund,13,50.05,4963,14.39%,17.59%,33.33%,0.0
+M_IDIC,LIC MF Midcap Fund,14,47.65,3486,18.73%,14.76%,16.67%,0.0
+M_HDCMS,HDFC Mid Cap Fund,15,47.0,4963,20.36%,20.89%,75.0%,0.0
+M_SUNIU,Sundaram Mid Cap Fund,16,38.15,4970,21.99%,19.21%,83.33%,0.0
+M_ADTMI,Aditya Birla SL Midcap Fund,17,38.07,4970,18.12%,15.91%,41.67%,0.0
+M_UTIMP,UTI Mid Cap Fund,18,36.79,4970,14.15%,13.95%,8.33%,0.0
+M_TAMW,Tata Mid Cap Fund,19,35.52,4963,17.35%,16.5%,83.33%,0.0
+M_TACV,Taurus Mid Cap Fund,20,34.12,4970,12.06%,13.5%,16.67%,0.0
+M_FRRN,Franklin India Mid Cap Fund,21,33.68,4970,18.68%,15.92%,8.33%,0.0
+M_PGDO,PGIM India Midcap Fund,22,27.91,4634,13.45%,12.67%,16.67%,0.0
+M_NIGW,Nippon India Growth Mid Cap Fund,23,23.57,4970,21.58%,20.24%,83.33%,0.0
+M_SBIAU,SBI Midcap Fund,24,21.6,4970,13.74%,15.34%,0.0%,0.0
+M_DSPMU,DSP Midcap Fund,25,16.96,4970,17.06%,13.53%,41.67%,0.0
