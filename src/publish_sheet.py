@@ -14,6 +14,8 @@ from gspread_formatting import (
     InterpolationPoint,
     CellFormat,
     Color,
+    Border,
+    Borders,
     GridRange,
     get_conditional_format_rules,
     set_column_widths,
@@ -24,6 +26,14 @@ from gspread_formatting import (
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"
 RANKS_DIR = RESULTS_DIR / "ranks"
+XIRR_BENCHMARK_COLUMNS = [
+    "NIFTY 50",
+    "NIFTY 500",
+    "NIFTY Midcap 150",
+    "NIFTY Smallcap 250",
+    "Gold",
+]
+XIRR_PORTFOLIO_SECTIONS = ["Mid Cap", "Multi Asset", "Small Cap", "Total Market"]
 
 
 def load_env():
@@ -193,10 +203,63 @@ def publish_rank_csv(title: str, csv_path: Path) -> None:
     if nrows and ncols:
         format_cell_range(ws, f"A1:{_col_index_to_a1(ncols - 1)}1", cellFormat(textFormat=textFormat(bold=True)))
         set_column_widths(ws, [(_col_index_to_a1(j), 115 if col != "date" else 105) for j, col in enumerate(df.columns)])
-        sh.batch_update({"requests": [{"setBasicFilter": {"filter": {
-            "range": {"sheetId": ws.id, "startRowIndex": 0, "endRowIndex": nrows,
-                      "startColumnIndex": 0, "endColumnIndex": ncols}
-        }}}]})
+        if title == "XIRR":
+            format_xirr_sheet(ws, df, nrows)
+        elif title.startswith("Ranks - "):
+            format_rank_sheet(ws, df, nrows)
+        if title == "XIRR":
+            ws.clear_basic_filter()
+        else:
+            sh.batch_update({"requests": [{"setBasicFilter": {"filter": {
+                "range": {"sheetId": ws.id, "startRowIndex": 0, "endRowIndex": nrows,
+                          "startColumnIndex": 0, "endColumnIndex": ncols}
+            }}}]})
+
+
+def format_xirr_sheet(ws, df: pd.DataFrame, nrows: int) -> None:
+    """Apply a fixed divergent return scale and section dividers to the XIRR tab."""
+    set_column_widths(ws, [(_col_index_to_a1(j), 100) for j in range(len(df.columns))])
+    last_column = _col_index_to_a1(len(df.columns) - 1)
+    rules = get_conditional_format_rules(ws)
+    rules.clear()
+    rules.append(ConditionalFormatRule(
+        ranges=[GridRange.from_a1_range(f"B2:{last_column}{nrows}", ws)],
+        gradientRule=GradientRule(
+            minpoint=InterpolationPoint(type="NUMBER", value="-50", color=Color(0.855, 0.180, 0.180)),
+            midpoint=InterpolationPoint(type="NUMBER", value="0", color=Color(1, 1, 1)),
+            maxpoint=InterpolationPoint(type="NUMBER", value="50", color=Color(0.180, 0.600, 0.280)),
+        ),
+    ))
+    rules.save()
+
+    divider_columns = ["date", XIRR_BENCHMARK_COLUMNS[-1]]
+    for section in XIRR_PORTFOLIO_SECTIONS:
+        section_columns = [column for column in df.columns if column == section or column.startswith(f"{section}_")]
+        if section_columns:
+            divider_columns.append(section_columns[-1])
+    divider = Border(style="SOLID_MEDIUM", color=Color(0.545, 0.600, 0.690))
+    for column in divider_columns:
+        column_letter = _col_index_to_a1(df.columns.get_loc(column))
+        format_cell_range(ws, f"{column_letter}1:{column_letter}{nrows}", cellFormat(
+            borders=Borders(right=divider)
+        ))
+
+
+def format_rank_sheet(ws, df: pd.DataFrame, nrows: int) -> None:
+    """Color rank 1 green, fading to white at rank 10 across a rank-history tab."""
+    last_column = _col_index_to_a1(len(df.columns) - 1)
+    rules = get_conditional_format_rules(ws)
+    rules.clear()
+    rules.append(ConditionalFormatRule(
+        ranges=[GridRange.from_a1_range(f"B2:{last_column}{nrows}", ws)],
+        gradientRule=GradientRule(
+            minpoint=InterpolationPoint(type="NUMBER", value="1", color=Color(0.400, 0.800, 0.400)),
+            maxpoint=InterpolationPoint(type="NUMBER", value="10", color=Color(1, 1, 1)),
+        ),
+    ))
+    rules.save()
+
+
 def move_worksheet_to_first(title: str) -> None:
     """Move an existing worksheet to the first tab position."""
     load_env()
