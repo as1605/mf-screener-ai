@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 from io import StringIO
+from compile_xirr import write_xirr_scores
 
 RESULTS_DIR = "results/"
 BRANCH_DATE_PREFIX = "date/"
@@ -54,6 +55,7 @@ def main():
     print(categories)
     for category in categories:
         process_category(category, dates)
+    print(f"Wrote XIRR scores to {write_xirr_scores()}")
     
 if __name__ == "__main__":
     main()
