@@ -23,6 +23,13 @@ INVESTMENT_PER_RUN = 1000.0
 TOP_FUNDS = 4
 DAY_COUNT = 365.2425
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+BENCHMARKS = {
+    "NIFTY 50": ".NSEI",
+    "NIFTY 500": ".NIFTY500",
+    "NIFTY Midcap 150": ".NIMI150",
+    "NIFTY Smallcap 250": ".NISM250",
+    "Gold": "GBES",
+}
 
 
 def get_run_dates() -> list[str]:
@@ -130,9 +137,18 @@ def build_xirr_scores(dates: list[str] | None = None) -> pd.DataFrame:
     if any(chart.empty for chart in charts.values()):
         missing = [mf_id for mf_id, chart in charts.items() if chart.empty]
         raise ValueError(f"No NAV history returned for: {', '.join(missing)}")
+    benchmark_charts = {
+        name: clean_chart(provider.fetch_index_chart(index_id))
+        for name, index_id in BENCHMARKS.items()
+    }
+    if any(chart.empty for chart in benchmark_charts.values()):
+        missing = [name for name, chart in benchmark_charts.items() if chart.empty]
+        raise ValueError(f"No NAV history returned for benchmarks: {', '.join(missing)}")
 
     units: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
     transactions: dict[str, list[tuple[pd.Timestamp, float]]] = defaultdict(list)
+    benchmark_units = defaultdict(float)
+    benchmark_transactions: dict[str, list[tuple[pd.Timestamp, float]]] = defaultdict(list)
     rows: list[dict[str, object]] = []
     for date in dates:
         for algorithm, (results, rank_column) in run_results[date].items():
@@ -142,13 +158,20 @@ def build_xirr_scores(dates: list[str] | None = None) -> pd.DataFrame:
                 transactions[algorithm].append((pd.Timestamp(date), -amount))
 
         row: dict[str, object] = {"date": date}
+        for name, chart in benchmark_charts.items():
+            benchmark_units[name] += INVESTMENT_PER_RUN / nav_as_of(chart, date, name)
+            benchmark_transactions[name].append((pd.Timestamp(date), -INVESTMENT_PER_RUN))
+            terminal_value = benchmark_units[name] * nav_as_of(chart, date, name)
+            rate = xirr([*benchmark_transactions[name], (pd.Timestamp(date), terminal_value)])
+            row[name] = np.nan if rate is None else rate * 100
         for algorithm, holdings in units.items():
             terminal_value = sum(held_units * nav_as_of(charts[mf_id], date, mf_id) for mf_id, held_units in holdings.items())
             rate = xirr([*transactions[algorithm], (pd.Timestamp(date), terminal_value)])
             row[algorithm] = np.nan if rate is None else rate * 100
         rows.append(row)
     scores = pd.DataFrame(rows)
-    return scores.reindex(columns=["date", *sorted(c for c in scores.columns if c != "date")])
+    portfolio_columns = sorted(c for c in scores.columns if c not in {"date", *BENCHMARKS})
+    return scores.reindex(columns=["date", *BENCHMARKS, *portfolio_columns])
 
 
 def write_xirr_scores() -> Path:
