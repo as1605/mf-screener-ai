@@ -23,6 +23,7 @@ from gspread_formatting import (
 )
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"
+RANKS_DIR = RESULTS_DIR / "ranks"
 
 
 def load_env():
@@ -168,6 +169,56 @@ def publish_sector(sector: str, results_dir: Path | None = None) -> None:
     })
 
 
+def publish_rank_csv(title: str, csv_path: Path) -> None:
+    """Publish a rank-history CSV to its own worksheet."""
+    if not csv_path.exists():
+        raise FileNotFoundError(f"Rank CSV not found: {csv_path}")
+
+    load_env()
+    sheet_url = os.environ.get("GOOGLE_SHEET_URL")
+    if not sheet_url:
+        raise ValueError("GOOGLE_SHEET_URL not set in .env")
+    sh = get_client().open_by_key(get_spreadsheet_id_from_url(sheet_url))
+
+    try:
+        ws = sh.worksheet(title)
+        ws.clear()
+    except gspread.WorksheetNotFound:
+        ws = sh.add_worksheet(title=title, rows=1000, cols=30)
+
+    df = pd.read_csv(csv_path)
+    data = [df.columns.tolist()] + df.astype(str).fillna("").values.tolist()
+    ws.update(data, value_input_option="USER_ENTERED")
+    nrows, ncols = len(data), len(df.columns)
+    if nrows and ncols:
+        format_cell_range(ws, f"A1:{_col_index_to_a1(ncols - 1)}1", cellFormat(textFormat=textFormat(bold=True)))
+        set_column_widths(ws, [(_col_index_to_a1(j), 115 if col != "date" else 105) for j, col in enumerate(df.columns)])
+        sh.batch_update({"requests": [{"setBasicFilter": {"filter": {
+            "range": {"sheetId": ws.id, "startRowIndex": 0, "endRowIndex": nrows,
+                      "startColumnIndex": 0, "endColumnIndex": ncols}
+        }}}]})
+def move_worksheet_to_first(title: str) -> None:
+    """Move an existing worksheet to the first tab position."""
+    load_env()
+    sheet_url = os.environ.get("GOOGLE_SHEET_URL")
+    if not sheet_url:
+        raise ValueError("GOOGLE_SHEET_URL not set in .env")
+    sh = get_client().open_by_key(get_spreadsheet_id_from_url(sheet_url))
+    ws = sh.worksheet(title)
+    sh.batch_update({"requests": [{"updateSheetProperties": {
+        "properties": {"sheetId": ws.id, "index": 0}, "fields": "index"
+    }}]})
+
+
+def publish_xirr_and_ranks() -> None:
+    """Publish the XIRR scorecard and one rank-history tab per sector."""
+    publish_rank_csv("XIRR", RANKS_DIR / "xirr.csv")
+    for csv_path in sorted(RANKS_DIR.glob("*.csv")):
+        if csv_path.name != "xirr.csv":
+            publish_rank_csv(f"Ranks - {csv_path.stem}", csv_path)
+    move_worksheet_to_first("Small Cap")
+
+
 def _col_index_to_a1(j: int) -> str:
     """Convert 0-based column index to A1 letter(s)."""
     out = []
@@ -179,9 +230,16 @@ def _col_index_to_a1(j: int) -> str:
 
 
 if __name__ == "__main__":
+    import argparse
     import sys
     from compile_results import discover_sectors, compile_and_write
 
+    parser = argparse.ArgumentParser(description="Publish screener results to Google Sheets.")
+    parser.add_argument(
+        "--ranks", action="store_true",
+        help="Also publish XIRR and rank-history worksheets; keep Small Cap as the first tab.",
+    )
+    args = parser.parse_args()
     load_env()
     sectors = discover_sectors()
     if not sectors:
@@ -191,3 +249,6 @@ if __name__ == "__main__":
         compile_and_write(sector)
         publish_sector(sector)
         print(f"Published {sector}")
+    if args.ranks:
+        publish_xirr_and_ranks()
+        print("Published XIRR and rank-history worksheets")
