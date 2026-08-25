@@ -24,7 +24,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
@@ -32,8 +33,57 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Make script executable
-        run: chmod +x run.sh
+      - name: Set run date
+        run: |
+          echo "RUN_DATE=$(date -u -d 'yesterday' +%F)" >> $GITHUB_ENV
 
-      - name: Run script
-        run: ./run.sh "$(date -u -d 'yesterday' +%F)"
+      - name: Checkout or create date branch
+        run: |
+          git fetch origin
+          if git show-ref --verify --quiet "refs/remotes/origin/date/$RUN_DATE"; then
+            git checkout -b "date/$RUN_DATE" "origin/date/$RUN_DATE"
+            git merge origin/main --no-edit
+          else
+            git checkout -b "date/$RUN_DATE" origin/main
+          fi
+
+      - name: Run screener analysis
+        run: |
+          python3 src/mf_data_provider.py --date "$RUN_DATE"
+          for script in src/algorithms/*.py; do
+            if [ -f "$script" ]; then
+              echo "Running $script..."
+              python3 "$script" --date "$RUN_DATE"
+            fi
+          done
+          python3 run.py --no-sheet
+
+      - name: Commit and push date branch
+        run: |
+          git add results/
+          if git diff --cached --quiet; then
+            echo "No changes to commit for date/$RUN_DATE"
+          else
+            git commit -m "Screener run for $RUN_DATE"
+            git push -u origin "date/$RUN_DATE"
+          fi
+
+      - name: Merge to main and compile ranks
+        run: |
+          git checkout main
+          git merge "date/$RUN_DATE" --no-edit
+          python3 src/compile_ranks.py
+          git add results/
+          if git diff --cached --quiet; then
+            echo "No changes to commit on main"
+          else
+            git commit -m "Updated results and ranks for $RUN_DATE"
+            git push -u origin main
+          fi
+
+      - name: Publish to Google Sheets
+        env:
+          GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
+          GOOGLE_SHEET_URL: ${{ secrets.GOOGLE_SHEET_URL || vars.GOOGLE_SHEET_URL }}
+        run: |
+          python3 src/publish_sheet.py --ranks
