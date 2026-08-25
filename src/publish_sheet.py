@@ -1,7 +1,8 @@
 """
-Publish compiled results to a Google Sheet.
-Uses GOOGLE_SERVICE_ACCOUNT_KEY and GOOGLE_SHEET_URL from .env.
+Publish compiled screener results to Google Sheets.
+Uses GOOGLE_SERVICE_ACCOUNT (JSON string) or GOOGLE_SERVICE_ACCOUNT_KEY (file path) and GOOGLE_SHEET_URL.
 """
+import json
 import os
 import re
 from pathlib import Path
@@ -54,25 +55,55 @@ def load_env():
 
 
 def get_spreadsheet_id_from_url(url: str) -> str:
-    """Extract spreadsheet ID from GOOGLE_SHEET_URL."""
+    """Extract spreadsheet ID from GOOGLE_SHEET_URL or return if already an ID."""
+    url = url.strip()
     m = re.search(r"/d/([a-zA-Z0-9-_]+)", url)
-    if not m:
-        raise ValueError(f"Cannot extract SPREADSHEET_ID from URL: {url}")
-    return m.group(1)
+    if m:
+        return m.group(1)
+    if re.match(r"^[a-zA-Z0-9-_]{20,}$", url):
+        return url
+    raise ValueError(f"Cannot extract SPREADSHEET_ID from URL: {url}")
+
+
+def get_sheet_url() -> str:
+    """Get Google Sheet URL or ID from environment."""
+    load_env()
+    sheet_url = os.environ.get("GOOGLE_SHEET_URL") or os.environ.get("SPREADSHEET_ID")
+    if not sheet_url:
+        raise ValueError("GOOGLE_SHEET_URL not set in environment or .env")
+    return sheet_url
 
 
 def get_client():
-    """Build gspread client from GOOGLE_SERVICE_ACCOUNT_KEY path."""
+    """Build gspread client from GOOGLE_SERVICE_ACCOUNT (JSON string) or GOOGLE_SERVICE_ACCOUNT_KEY (file path)."""
     load_env()
+
+    # 1. Direct JSON string from GitHub Secret or environment variable
+    sa_env = os.environ.get("GOOGLE_SERVICE_ACCOUNT")
+    if sa_env:
+        sa_env = sa_env.strip()
+        if sa_env.startswith("{"):
+            info = json.loads(sa_env)
+            return gspread.service_account_from_dict(info)
+        path = Path(sa_env)
+        if not path.is_absolute():
+            path = Path(__file__).resolve().parent.parent / sa_env
+        if path.exists():
+            return gspread.service_account(filename=str(path))
+        info = json.loads(sa_env)
+        return gspread.service_account_from_dict(info)
+
+    # 2. File path from GOOGLE_SERVICE_ACCOUNT_KEY
     key_path = os.environ.get("GOOGLE_SERVICE_ACCOUNT_KEY")
-    if not key_path:
-        raise ValueError("GOOGLE_SERVICE_ACCOUNT_KEY not set in .env")
-    path = Path(key_path)
-    if not path.is_absolute():
-        path = Path(__file__).resolve().parent.parent / key_path
-    if not path.exists():
-        raise FileNotFoundError(f"Service account key not found: {path}")
-    return gspread.service_account(filename=str(path))
+    if key_path:
+        path = Path(key_path)
+        if not path.is_absolute():
+            path = Path(__file__).resolve().parent.parent / key_path
+        if not path.exists():
+            raise FileNotFoundError(f"Service account key not found: {path}")
+        return gspread.service_account(filename=str(path))
+
+    raise ValueError("Neither GOOGLE_SERVICE_ACCOUNT nor GOOGLE_SERVICE_ACCOUNT_KEY is set in environment or .env")
 
 
 def publish_sector(sector: str, results_dir: Path | None = None) -> None:
@@ -85,10 +116,7 @@ def publish_sector(sector: str, results_dir: Path | None = None) -> None:
     if not csv_path.exists():
         raise FileNotFoundError(f"Compiled file not found: {csv_path}")
 
-    load_env()
-    sheet_url = os.environ.get("GOOGLE_SHEET_URL")
-    if not sheet_url:
-        raise ValueError("GOOGLE_SHEET_URL not set in .env")
+    sheet_url = get_sheet_url()
     spreadsheet_id = get_spreadsheet_id_from_url(sheet_url)
 
     gc = get_client()
@@ -184,10 +212,7 @@ def publish_rank_csv(title: str, csv_path: Path) -> None:
     if not csv_path.exists():
         raise FileNotFoundError(f"Rank CSV not found: {csv_path}")
 
-    load_env()
-    sheet_url = os.environ.get("GOOGLE_SHEET_URL")
-    if not sheet_url:
-        raise ValueError("GOOGLE_SHEET_URL not set in .env")
+    sheet_url = get_sheet_url()
     sh = get_client().open_by_key(get_spreadsheet_id_from_url(sheet_url))
 
     try:
@@ -260,26 +285,12 @@ def format_rank_sheet(ws, df: pd.DataFrame, nrows: int) -> None:
     rules.save()
 
 
-def move_worksheet_to_first(title: str) -> None:
-    """Move an existing worksheet to the first tab position."""
-    load_env()
-    sheet_url = os.environ.get("GOOGLE_SHEET_URL")
-    if not sheet_url:
-        raise ValueError("GOOGLE_SHEET_URL not set in .env")
-    sh = get_client().open_by_key(get_spreadsheet_id_from_url(sheet_url))
-    ws = sh.worksheet(title)
-    sh.batch_update({"requests": [{"updateSheetProperties": {
-        "properties": {"sheetId": ws.id, "index": 0}, "fields": "index"
-    }}]})
-
-
 def publish_xirr_and_ranks() -> None:
     """Publish the XIRR scorecard and one rank-history tab per sector."""
     publish_rank_csv("XIRR", RANKS_DIR / "xirr.csv")
     for csv_path in sorted(RANKS_DIR.glob("*.csv")):
         if csv_path.name != "xirr.csv":
             publish_rank_csv(f"Ranks - {csv_path.stem}", csv_path)
-    move_worksheet_to_first("Small Cap")
 
 
 def _col_index_to_a1(j: int) -> str:
@@ -300,7 +311,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Publish screener results to Google Sheets.")
     parser.add_argument(
         "--ranks", action="store_true",
-        help="Also publish XIRR and rank-history worksheets; keep Small Cap as the first tab.",
+        help="Also publish XIRR and rank-history worksheets.",
     )
     args = parser.parse_args()
     load_env()
