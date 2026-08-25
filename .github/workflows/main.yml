@@ -56,7 +56,7 @@ jobs:
               python3 "$script" --date "$RUN_DATE"
             fi
           done
-          python3 src/run.py --no-sheet
+          python3 run.py --no-sheet
 
       - name: Commit and push date branch
         run: |

@@ -7,8 +7,8 @@ import argparse
 import sys
 from pathlib import Path
 
-# Allow imports from src directory
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# Run from project root
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
 from compile_results import discover_sectors, compile_and_write
 from publish_sheet import load_env, publish_sector, publish_xirr_and_ranks

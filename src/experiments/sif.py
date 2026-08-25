@@ -1,5 +1,12 @@
-from mf_data_provider import MfDataProvider
+import sys
+from pathlib import Path
 import pandas as pd
+
+SRC = Path(__file__).resolve().parents[1]
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+from mf_data_provider import MfDataProvider
 
 PATH_NAV = 'results/experiments/sif_nav.csv'
 PATH_3M = 'results/experiments/sif_3m.csv'
