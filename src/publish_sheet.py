@@ -9,6 +9,29 @@ from pathlib import Path
 
 import pandas as pd
 import gspread
+
+# ---------------------------------------------------------------------------
+# Exponential Backoff for Google Sheets API (Intercepts all gspread calls)
+# ---------------------------------------------------------------------------
+original_request = gspread.http_client.HTTPClient.request
+
+def backoff_request(self, method, endpoint, params=None, data=None, json=None, files=None):
+    retries = 0
+    backoff = 2
+    while True:
+        try:
+            return original_request(self, method, endpoint, params=params, data=data, json=json, files=files)
+        except gspread.exceptions.APIError as e:
+            if getattr(e.response, "status_code", None) == 429 and retries < 5:
+                print(f"[429 Rate Limit] Retrying in {backoff} seconds...", flush=True)
+                import time
+                time.sleep(backoff)
+                retries += 1
+                backoff *= 2
+            else:
+                raise
+
+gspread.http_client.HTTPClient.request = backoff_request
 from gspread_formatting import (
     ConditionalFormatRule,
     GradientRule,
@@ -21,9 +44,11 @@ from gspread_formatting import (
     get_conditional_format_rules,
     set_column_widths,
     format_cell_range,
+    format_cell_ranges,
     cellFormat,
     textFormat,
 )
+import time
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"
 RANKS_DIR = RESULTS_DIR / "ranks"
@@ -185,9 +210,11 @@ def publish_sector(sector: str, results_dir: Path | None = None) -> None:
     name_letter = _col_index_to_a1(name_col - 1)
     final_letter = _col_index_to_a1(final_score_col - 1)
     fmt_bold = cellFormat(textFormat=textFormat(bold=True))
-    format_cell_range(ws, f"A1:{_col_index_to_a1(ncols - 1)}1", fmt_bold)
-    format_cell_range(ws, f"{name_letter}1:{name_letter}{nrows}", fmt_bold)
-    format_cell_range(ws, f"{final_letter}1:{final_letter}{nrows}", fmt_bold)
+    format_cell_ranges(ws, [
+        (f"A1:{_col_index_to_a1(ncols - 1)}1", fmt_bold),
+        (f"{name_letter}1:{name_letter}{nrows}", fmt_bold),
+        (f"{final_letter}1:{final_letter}{nrows}", fmt_bold)
+    ])
 
     # Create filter on top row (header + all data)
     sh.batch_update({
@@ -205,6 +232,9 @@ def publish_sector(sector: str, results_dir: Path | None = None) -> None:
             }
         }]
     })
+    
+    # Sleep to avoid Google Sheets API rate limit (60 writes / min / user)
+    time.sleep(2)
 
 
 def publish_rank_csv(title: str, csv_path: Path) -> None:
@@ -239,6 +269,9 @@ def publish_rank_csv(title: str, csv_path: Path) -> None:
                 "range": {"sheetId": ws.id, "startRowIndex": 0, "endRowIndex": nrows,
                           "startColumnIndex": 0, "endColumnIndex": ncols}
             }}}]})
+            
+    # Sleep to avoid Google Sheets API rate limit (60 writes / min / user)
+    time.sleep(2)
 
 
 def format_xirr_sheet(ws, df: pd.DataFrame, nrows: int) -> None:
@@ -263,11 +296,14 @@ def format_xirr_sheet(ws, df: pd.DataFrame, nrows: int) -> None:
         if section_columns:
             divider_columns.append(section_columns[-1])
     divider = Border(style="SOLID_MEDIUM", color=Color(0.545, 0.600, 0.690))
+    fmt_divider = cellFormat(borders=Borders(right=divider))
+    ranges = []
     for column in divider_columns:
         column_letter = _col_index_to_a1(df.columns.get_loc(column))
-        format_cell_range(ws, f"{column_letter}1:{column_letter}{nrows}", cellFormat(
-            borders=Borders(right=divider)
-        ))
+        ranges.append((f"{column_letter}1:{column_letter}{nrows}", fmt_divider))
+    
+    if ranges:
+        format_cell_ranges(ws, ranges)
 
 
 def format_rank_sheet(ws, df: pd.DataFrame, nrows: int) -> None:
