@@ -96,7 +96,7 @@ echo ""
 echo "========================================"
 echo "  3/3  COMPILING RESULTS"
 echo "========================================"
-python run.py --no-sheet
+python run.py --ranks --no-sheet
 
 echo ""
 echo "========================================"
