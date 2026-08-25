@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
 
 from compile_results import discover_sectors, compile_and_write
+from compile_ranks import main as compile_ranks
 from publish_sheet import load_env, publish_sector, publish_xirr_and_ranks
 
 
@@ -24,7 +25,7 @@ def main():
     p.add_argument(
         "--ranks",
         action="store_true",
-        help="Also publish XIRR and rank-history worksheets to Google Sheets.",
+        help="Also compile and optionally publish XIRR and rank-history worksheets.",
     )
     args = p.parse_args()
 
@@ -42,9 +43,13 @@ def main():
             publish_sector(sector)
             print(f"Compiled and published: {sector}")
 
-    if not args.no_sheet and args.ranks:
-        publish_xirr_and_ranks()
-        print("Published XIRR and rank-history worksheets")
+    if args.ranks:
+        compile_ranks()
+        if args.no_sheet:
+            print("Compiled ranks and XIRR (no sheet)")
+        else:
+            publish_xirr_and_ranks()
+            print("Published XIRR and rank-history worksheets")
 
 
 if __name__ == "__main__":
