@@ -1,3 +1,5 @@
 theme: jekyll-theme-slate
 title: MF Screener AI
-description: AI-powered Mutual Fund Screening
+description: Open-source quantitative Indian mutual fund screener and multi-LLM ranking framework evaluating 200+ schemes across 30+ metrics including Sharpe, Sortino, Alpha, and SIP XIRR.
+plugins:
+  - jekyll-seo-tag
