@@ -14,7 +14,7 @@ Most mutual fund screeners provide basic star ratings based on past CAGR. We bui
 1. Provide transparent, **open-source quantitative screening**.
 2. Give investors actionable insights matching real-world investing scenarios (e.g., heavily weighting **historical SIP XIRR** rather than just point-to-point returns).
 3. Test if diverse AI reasoning models can identify resilient, high-quality funds better than standard static filters.
-4. **Verifiable Performance**: We compute the rolling SIP XIRR for every strategy against standard NIFTY benchmarks to prove the real-world value of the LLM rankings. You can view the [Latest Strategy XIRR in the rankings](docs/rankings.md).
+4. **Verifiable Performance**: We compute the rolling SIP XIRR for every strategy against standard NIFTY benchmarks to prove the real-world value of the LLM rankings. You can view the [Latest Strategy XIRR in the rankings](docs/RANKINGS.md).
 
 ## Automated Weekly Execution
 

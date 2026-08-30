@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 
 RESULTS_DIR = "results"
-OUTPUT_FILE = "docs/rankings.md"
+OUTPUT_FILE = "docs/RANKINGS.md"
 
 date_str = datetime.now().strftime("%B %d, %Y")
 

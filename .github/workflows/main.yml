@@ -61,7 +61,7 @@ jobs:
       - name: Commit and push date branch
         run: |
           python3 scripts/generate_markdown.py
-          git add results/ docs/rankings.md
+          git add results/ docs/RANKINGS.md
           if git diff --cached --quiet; then
             echo "No changes to commit for date/$RUN_DATE"
           else
@@ -75,7 +75,7 @@ jobs:
           git merge "date/$RUN_DATE" --no-edit
           python3 src/compile_ranks.py
           python3 scripts/generate_markdown.py
-          git add results/ docs/rankings.md
+          git add results/ docs/RANKINGS.md
           if git diff --cached --quiet; then
             echo "No changes to commit on main"
           else

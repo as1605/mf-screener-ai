@@ -22,3 +22,4 @@ It functions as an "LLM Arena" for quantitative finance. We task Claude, Gemini,
 ## Link
 - GitHub: https://github.com/as1605/mf-screener-ai
 - Live Rankings Spreadsheet: https://docs.google.com/spreadsheets/d/1fH5cMXYqR1WQwCO0Xel26b44CbZnCTzgQyINPgdj7QI
+- Live AI Rankings (Markdown): https://github.com/as1605/mf-screener-ai/blob/main/docs/RANKINGS.md
