@@ -2,7 +2,7 @@
 
 **An open-source quantitative analysis engine and multi-LLM ranking framework for Indian Mutual Funds (Small Cap, Mid Cap, Total Market, Multi Asset).**
 
-[📊 View Live Ranks (Google Sheet)](https://docs.google.com/spreadsheets/d/1fH5cMXYqR1WQwCO0Xel26b44CbZnCTzgQyINPgdj7QI) | [🏆 View Top Funds (Markdown)](docs/rankings/index.md) | [📖 Methodology](docs/METHODOLOGY.md) | [🚀 Quickstart](docs/SETUP.md)
+[📊 View Live Ranks (Google Sheet)](https://docs.google.com/spreadsheets/d/1fH5cMXYqR1WQwCO0Xel26b44CbZnCTzgQyINPgdj7QI) | [📖 Methodology](docs/METHODOLOGY.md) | [🚀 Quickstart](docs/SETUP.md)
 
 MF Screener AI evaluates **200+ Indian mutual fund schemes** using historical NAV data from TickerTape. Instead of relying on a single fixed formula, we act as an "LLM Arena": we task **Claude, Gemini, GPT, and Grok** to independently design quantitative scoring strategies. 
 
@@ -14,7 +14,7 @@ Most mutual fund screeners provide basic star ratings based on past CAGR. We bui
 1. Provide transparent, **open-source quantitative screening**.
 2. Give investors actionable insights matching real-world investing scenarios (e.g., heavily weighting **historical SIP XIRR** rather than just point-to-point returns).
 3. Test if diverse AI reasoning models can identify resilient, high-quality funds better than standard static filters.
-4. **Verifiable Performance**: We compute the rolling SIP XIRR for every strategy against standard NIFTY benchmarks to prove the real-world value of the LLM rankings. You can view the [Latest Strategy XIRR in the rankings](docs/rankings/index.md).
+4. **Verifiable Performance**: We compute the rolling SIP XIRR for every strategy against standard NIFTY benchmarks to prove the real-world value of the LLM rankings. You can view the [Latest Strategy XIRR in the rankings](docs/rankings.md).
 
 ## Automated Weekly Execution
 
