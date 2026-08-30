@@ -18,21 +18,6 @@ The following is the quantitative ranking of **Small Cap** mutual funds based on
 | 8 | Bajaj Finserv Small Cap Fund | 0.644 | N/A (insufficient history) | 85.0 | 76.88 | 51.17 | 43.12 |
 | 9 | Edelweiss Small Cap Fund | 0.634 | 16.6 | 61.29 | 45.16 | 52.3 | 79.18 |
 | 10 | Union Small Cap Fund | 0.629 | 17.68 | 83.87 | 83.87 | 60.46 | 26.12 |
-| 11 | JM Small Cap Fund | 0.606 | N/A (insufficient history) | 74.03 | 57.01 | 57.65 | 49.11 |
-| 12 | Bandhan Small Cap Fund | 0.585 | 25.23 | 22.58 | 69.22 | 56.22 | 73.85 |
-| 13 | Axis Small Cap Fund | 0.574 | 16.3 | 51.61 | 40.81 | 53.85 | 71.9 |
-| 14 | PGIM India Small Cap Fund | 0.572 | 17.54 | 70.97 | 57.95 | 35.18 | 63.21 |
-| 15 | Mirae Asset Small Cap Fund | 0.467 | N/A (insufficient history) | 57.58 | 39.76 | 48.45 | 45.41 |
-| 16 | Aditya Birla SL Small Cap Fund | 0.436 | 16.02 | 54.84 | 67.74 | 53.16 | 14.97 |
-| 17 | Nippon India Small Cap Fund | 0.411 | 15.93 | 35.48 | 27.91 | 55.9 | 47.77 |
-| 18 | Canara Rob Small Cap Fund | 0.41 | 13.68 | 41.94 | 22.58 | 35.0 | 66.95 |
-| 19 | UTI Small Cap Fund | 0.406 | 15.24 | 32.26 | 32.26 | 31.04 | 69.88 |
-| 20 | Quantum Small Cap Fund | 0.381 | 13.57 | 49.35 | 33.86 | 23.7 | 56.86 |
-| 21 | LIC MF Small Cap Fund | 0.374 | 18.52 | 38.71 | 60.66 | 48.48 | 19.93 |
-| 22 | SBI Small Cap Fund | 0.358 | 12.74 | 25.81 | 15.51 | 48.18 | 57.27 |
-| 23 | Quant Small Cap Fund | 0.355 | 17.77 | 12.9 | 49.97 | 65.81 | 24.55 |
-| 24 | HSBC Small Cap Fund | 0.352 | 14.78 | 48.39 | 38.47 | 48.78 | 22.27 |
-| 25 | Sundaram Small Cap Fund | 0.347 | 17.8 | 45.16 | 54.84 | 42.95 | 17.4 |
 
 
-*Note: This is the top 25 list. For the complete dataset, refer to the project's repository results.*
+*Note: This is the top 10 list. For the complete dataset, refer to the project's repository results.*

@@ -63,8 +63,8 @@ for file in sorted(os.listdir(RESULTS_DIR)):
         if 'total_rank' in df.columns:
             df = df.sort_values(by='total_rank')
         
-        # Limit to top 25 for the markdown page to keep it clean and indexable
-        df_top = df.head(25).copy()
+        # Limit to top 10 for the markdown page to keep it clean and indexable
+        df_top = df.head(10).copy()
         
         # Format some columns if they exist
         cols_to_keep = ['total_rank', 'name', 'final_score', 'avg_cagr_3y']
@@ -105,7 +105,7 @@ for file in sorted(os.listdir(RESULTS_DIR)):
                 row_str = "| " + " | ".join([str(x) for x in row.values]) + " |\n"
                 f.write(row_str)
 
-            f.write("\n\n*Note: This is the top 25 list. For the complete dataset, refer to the project's repository results.*")
+            f.write("\n\n*Note: This is the top 10 list. For the complete dataset, refer to the project's repository results.*")
         
         index_content += f"- [{category_name} Rankings]({category_name.lower().replace(' ', '-')}.md)\n"
 

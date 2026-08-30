@@ -18,21 +18,6 @@ The following is the quantitative ranking of **Total Market** mutual funds based
 | 8 | WOC Flexi Cap Fund | 0.873 | 16.14 | 71.98 | 64.39 | 85.47 | 73.91 |
 | 9 | Parag Parikh Flexi Cap Fund | 0.85 | 13.77 | 68.44 | 59.3 | 77.82 | 83.41 |
 | 10 | Bank of India Flexi Cap Fund | 0.841 | 21.19 | 71.33 | 66.93 | 66.07 | 78.62 |
-| 11 | Canara Rob Focused Fund | 0.829 | 14.35 | 61.82 | 63.42 | 79.53 | 76.45 |
-| 12 | Mahindra Manulife Multi Cap Fund | 0.828 | 18.31 | 63.2 | 72.97 | 63.72 | 76.67 |
-| 13 | ICICI Pru Focused Equity Fund | 0.824 | 18.39 | 76.48 | 76.42 | 56.24 | 65.04 |
-| 14 | Kotak Contra Fund | 0.81 | 16.94 | 68.94 | 67.97 | 59.02 | 76.11 |
-| 15 | Invesco India Focused Fund | 0.792 | 22.71 | 62.1 | 69.49 | 71.24 | 64.49 |
-| 16 | ICICI Pru Value Fund | 0.782 | 13.48 | 69.75 | 64.47 | 59.53 | 70.78 |
-| 17 | HSBC Value Fund | 0.772 | 17.61 | 73.99 | 69.31 | 40.56 | 74.25 |
-| 18 | Kotak Focused Fund | 0.772 | 16.27 | 57.86 | 61.85 | 77.09 | 66.73 |
-| 19 | LIC MF Multi Cap Fund | 0.77 | 19.02 | 72.25 | 63.1 | 57.21 | 68.49 |
-| 20 | ITI Focused Fund | 0.765 | 19.66 | 75.03 | 54.33 | 63.9 | 69.35 |
-| 21 | SBI Focused Fund | 0.761 | 17.12 | 66.0 | 59.5 | 68.12 | 66.36 |
-| 22 | Invesco India Contra Fund | 0.754 | 16.1 | 62.14 | 65.29 | 50.98 | 75.74 |
-| 23 | ICICI Pru Multicap Fund | 0.752 | 17.62 | 70.23 | 67.85 | 53.5 | 61.93 |
-| 24 | Quant Value Fund | 0.743 | 21.66 | 61.67 | 60.09 | 64.19 | 67.65 |
-| 25 | Aditya Birla SL Multi-Cap Fund | 0.74 | 15.52 | 62.17 | 59.11 | 60.51 | 70.82 |
 
 
-*Note: This is the top 25 list. For the complete dataset, refer to the project's repository results.*
+*Note: This is the top 10 list. For the complete dataset, refer to the project's repository results.*

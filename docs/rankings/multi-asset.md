@@ -18,21 +18,6 @@ The following is the quantitative ranking of **Multi Asset** mutual funds based 
 | 8 | WOC Multi Asset Allocation Fund | 0.646 | 17.5 | 50.17 | 60.99 | 29.19 | 68.37 |
 | 9 | Bandhan Multi Asset Allocation Fund | 0.641 | 17.09 | 57.65 | 54.31 | 38.43 | 52.73 |
 | 10 | Kotak Multi Asset Allocation Fund | 0.638 | 19.56 | 57.42 | 50.21 | 38.04 | 56.39 |
-| 11 | 360 ONE Multi Asset Allocation Fund | 0.617 | N/A (insufficient history) | 53.25 | 44.03 | 50.5 | 41.73 |
-| 12 | Mahindra Manulife Multi Asset Allocation Fund | 0.614 | 16.85 | 55.77 | 55.32 | 33.8 | 54.04 |
-| 13 | Invesco India Multi Asset Allocation Fund | 0.612 | N/A (insufficient history) | 61.16 | 47.58 | 42.65 | 42.52 |
-| 14 | Mirae Asset Multi Asset Allocation Fund | 0.567 | 14.93 | 49.84 | 56.21 | 30.14 | 52.77 |
-| 15 | HDFC Multi-Asset Allocation Fund | 0.556 | 13.15 | 51.4 | 50.99 | 42.92 | 34.29 |
-| 16 | Edelweiss Multi Asset Allocation Fund | 0.548 | 7.5 | 46.99 | 45.29 | 32.95 | 55.79 |
-| 17 | Sundaram Multi Asset Allocation Fund | 0.528 | 14.5 | 39.26 | 48.79 | 36.94 | 48.71 |
-| 18 | Union Multi Asset Allocation Fund | 0.509 | N/A (insufficient history) | 36.27 | 42.49 | 44.45 | 40.84 |
-| 19 | Baroda BNP Paribas Multi Asset Fund | 0.48 | 16.3 | 38.6 | 44.66 | 29.51 | 52.6 |
-| 20 | Bajaj Finserv Multi Asset Allocation Fund | 0.48 | N/A (insufficient history) | 46.49 | 35.73 | 32.84 | 48.61 |
-| 21 | UTI Multi Asset Allocation Fund | 0.477 | 17.04 | 46.78 | 52.83 | 41.45 | 19.99 |
-| 22 | Axis Multi Asset Allocation Fund | 0.47 | 15.28 | 46.47 | 45.68 | 41.28 | 24.99 |
-| 23 | Quantum Multi Asset Allocation Fund | 0.468 | 9.55 | 35.55 | 38.69 | 39.08 | 43.14 |
-| 24 | Canara Rob Multi Asset Allocation Fund | 0.466 | N/A (insufficient history) | 45.53 | 39.86 | 34.11 | 40.59 |
-| 25 | Bank of India Multi Asset Allocation Fund | 0.455 | 12.04 | 44.75 | 33.36 | 32.34 | 46.9 |
 
 
-*Note: This is the top 25 list. For the complete dataset, refer to the project's repository results.*
+*Note: This is the top 10 list. For the complete dataset, refer to the project's repository results.*
