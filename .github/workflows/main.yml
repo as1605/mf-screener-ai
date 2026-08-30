@@ -73,7 +73,8 @@ jobs:
           git checkout main
           git merge "date/$RUN_DATE" --no-edit
           python3 src/compile_ranks.py
-          git add results/
+          python3 scripts/generate_markdown.py
+          git add results/ docs/RANKINGS.md
           if git diff --cached --quiet; then
             echo "No changes to commit on main"
           else

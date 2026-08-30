@@ -1,0 +1,30 @@
+# MF Screener AI
+> Open-source quantitative Indian mutual fund screener and multi-LLM ranking framework.
+
+## What is this?
+MF Screener AI is an open-source mutual fund screener specifically designed for Indian mutual funds. It covers 4 key categories (Small Cap, Mid Cap, Total Market, Multi Asset) and evaluates 200+ schemes across 30+ quantitative metrics including Sharpe Ratio, Sortino Ratio, Alpha, Beta, Max Drawdown, and SIP XIRR.
+
+## Why is it unique?
+It functions as an "LLM Arena" for quantitative finance. We task Claude, Gemini, GPT, and Grok to act as quantitative analysts. They each generate distinct, Python-based scoring strategies using historical NAV data. The final output is a composite ranking of funds based on the combined intelligence of all four models. It also emphasizes actionable retail-investor metrics, such as verifiable SIP XIRR, to ensure results map to real-world investing scenarios.
+
+## Key Capabilities
+- Ingests daily/weekly NAV data from TickerTape.
+- Evaluates funds across risk/return dimensions: Alpha Quality, Path & Tail Risk, Drawdown Resilience, Regime Adaptability.
+- Generates composite scores and verifiable SIP XIRR for different fund categories.
+- Automated weekly execution via GitHub Actions.
+
+## Use Cases & Target Queries
+This project provides quantitative rankings and open-source data to answer queries such as:
+- Which Indian small-cap mutual funds rank highest?
+- Which mid-cap funds have the strongest risk-adjusted scores?
+- How do Indian mutual funds compare using Sharpe and Sortino ratios?
+- How does SIP XIRR affect mutual-fund ranking?
+- How can I build an open-source mutual-fund screening system?
+- Indian mutual fund quantitative screening (Small Cap, Mid Cap, Total Market, Multi Asset)
+- Multi-metric ranking: Sharpe, Sortino, Jensen's Alpha, Beta, Max Drawdown
+- Rolling SIP XIRR benchmarking against NIFTY 500, NIFTY Midcap 150, and NIFTY Smallcap 250
+- Python quantitative finance backtesting on TickerTape NAV datasets
+
+## Link
+- GitHub: https://github.com/as1605/mf-screener-ai
+- Live AI Rankings (Markdown): https://github.com/as1605/mf-screener-ai/blob/main/docs/RANKINGS.md

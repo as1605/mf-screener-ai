@@ -26,7 +26,7 @@ The beauty of this approach is that **you don't need deep financial expertise** 
 ## Prerequisites
 
 *   Python 3.10+
-*   Cursor (Recommended for vibecoding)
+*   Cursor
 *   Google Cloud Service Account (for Sheets API)
 
 ## Installation
@@ -91,7 +91,7 @@ To generate a new custom algorithm or rerun existing ones:
     ```
     This will compile all results in `results/` and upload them to the Google Sheet.
 
-## Customizing Algorithms (Vibecoding)
+## Customizing Algorithms
 
 **This is the core workflow of the project!** Creating your own algorithm is straightforward:
 
