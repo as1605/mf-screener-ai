@@ -3,15 +3,14 @@
 Multi Asset Allocation Fund Scoring Algorithm - Gemini Model
 
 A quantitative scoring model for Indian Multi Asset Allocation mutual funds,
-optimized for predicting performance over the next 1 year.
+optimized for a 24-month horizon (12-month SIP + 12-month hold).
 
-Key differentiators:
-1. Cycle Agility Score: Measures how well the fund increases equity exposure during
-   bull markets and reduces it during bear markets (Equity Up-Beta - Equity Down-Beta).
-2. Precious Metals Upside Capture: Measures the fund's ability to capture rallies
-   in Gold and Silver.
-3. Sortino Ratio (3Y): Focuses purely on downside risk.
-4. SIP Return Stability: Evaluates the consistency of 1-year SIP returns over time.
+Incorporates cross-sector best practices and non-linear institutional scoring:
+1. 24-Month Scenario Optimization (Sortino & Max Drawdown).
+2. Asymmetry Score (Up-Beta / Down-Beta).
+3. Manager Edge Decay (Forward-looking 6m vs 3y decay metrics).
+4. Appraisal Ratio (Alpha / Idiosyncratic Risk) & Closet Indexer Penalty.
+5. Decision-Tree Scoring (Hard Filters -> Decay Multipliers -> Alpha Boosts).
 
 Author : Gemini
 Sector : Multi Asset
@@ -27,6 +26,7 @@ from typing import Optional, Tuple, List, Dict
 
 import numpy as np
 import pandas as pd
+import scipy.stats as stats
 from datetime import datetime, timedelta
 
 # ---------------------------------------------------------------------------
@@ -56,11 +56,11 @@ SECTOR = "Multi Asset"
 SUBSECTOR = "Multi Asset Allocation Fund"
 EQUITY_INDEX = "Total Market"           # .NIFTY500
 GOLD_MF_ID = "M_SBIGL"
-SILVER_MF_ID = "M_ICPVF"
-RISK_FREE_RATE = 0.065                  # ~6.5%
 TRADING_DAYS_PER_YEAR = 252
+MIN_DAYS_6M = 126
 MIN_DAYS_1Y = 252
 MIN_DAYS_3Y = 756
+MIN_DAYS_4Y = 1008
 MIN_DAYS_5Y = 1260
 
 OUTPUT_DIR = ROOT_DIR / "results"
@@ -86,8 +86,67 @@ def annualised_return(nav_series: pd.Series, days: int) -> Optional[float]:
     years = days / TRADING_DAYS_PER_YEAR
     return (end / start) ** (1 / years) - 1
 
+def max_drawdown(returns: pd.Series) -> float:
+    """Calculate maximum drawdown from peak."""
+    if len(returns) == 0: return 0.0
+    cum_returns = (1 + returns).cumprod()
+    peak = cum_returns.expanding(min_periods=1).max()
+    drawdown = (cum_returns / peak) - 1
+    return drawdown.min()
+
+def calculate_24m_scenario_sortino(fund_nav: pd.Series) -> Tuple[Optional[float], Optional[float]]:
+    """
+    Calculate the mean return and Sortino ratio for a rolling 24-month scenario
+    (12m SIP + 12m Hold).
+    """
+    fund_monthly = fund_nav.resample('MS').first()
+    months_total = 24
+    if len(fund_monthly) < months_total + 1:
+        return None, None
+        
+    MAR = 0.10 # 10% cumulative hurdle rate over 24m (approx 5% annualized)
+    
+    returns = []
+    for i in range(len(fund_monthly) - months_total):
+        f_invest = fund_monthly.iloc[i : i+12]
+        f_final = fund_monthly.iloc[i+months_total]
+        f_units = 1000 / f_invest
+        f_val = f_units.sum() * f_final
+        f_ret = (f_val - (1000 * 12)) / (1000 * 12)
+        returns.append(f_ret)
+        
+    if not returns: return None, None
+    returns = np.array(returns)
+    mean_ret = returns.mean()
+    
+    excess_returns = returns - MAR
+    downside = excess_returns[excess_returns < 0]
+    
+    if len(downside) == 0:
+        sortino = mean_ret / (returns.std() + 1e-6)
+    else:
+        downside_std = np.sqrt(np.mean(downside**2))
+        sortino = (mean_ret - MAR) / downside_std
+        
+    return mean_ret, sortino
+
+def compute_up_beta(fund_ret: pd.Series, bench_ret: pd.Series) -> Optional[float]:
+    """Calculate Up-Market Beta (e.g. against Gold)."""
+    aligned = pd.concat([fund_ret, bench_ret], axis=1, join="inner").dropna()
+    if len(aligned) < 20:
+        return None
+    f_r = aligned.iloc[:, 0]
+    b_r = aligned.iloc[:, 1]
+    up_days = b_r > 0
+    if up_days.sum() > 5:
+        cov = np.cov(b_r[up_days], f_r[up_days])[0, 1]
+        var = np.var(b_r[up_days], ddof=1)
+        if var > 0:
+            return cov / var
+    return None
+
 def compute_up_down_beta(fund_ret: pd.Series, bench_ret: pd.Series) -> Tuple[Optional[float], Optional[float]]:
-    """Calculate Up-Market and Down-Market Beta."""
+    """Calculate Up-Market and Down-Market Beta for Asymmetry Score."""
     aligned = pd.concat([fund_ret, bench_ret], axis=1, join="inner").dropna()
     if len(aligned) < 20:
         return None, None
@@ -114,71 +173,54 @@ def compute_up_down_beta(fund_ret: pd.Series, bench_ret: pd.Series) -> Tuple[Opt
             
     return up_beta, down_beta
 
-def sortino_ratio(returns: pd.Series, rf: float = RISK_FREE_RATE) -> Optional[float]:
-    """Sortino ratio calculated from daily returns series."""
-    if len(returns) < 20:
+def compute_information_ratio(fund_ret: pd.Series, bench_ret: pd.Series) -> Optional[float]:
+    """Calculate Information Ratio."""
+    aligned = pd.concat([fund_ret, bench_ret], axis=1, join="inner").dropna()
+    if len(aligned) < 20:
         return None
-    
-    # Convert annual RF to daily
-    rf_daily = (1 + rf) ** (1/TRADING_DAYS_PER_YEAR) - 1
-    
-    excess_returns = returns - rf_daily
-    downside_returns = excess_returns[excess_returns < 0]
-    
-    if len(downside_returns) == 0:
-        return None
-        
-    downside_dev = np.sqrt((downside_returns**2).mean()) * np.sqrt(TRADING_DAYS_PER_YEAR)
-    
-    if downside_dev == 0:
-        return None
-        
-    # Annualize mean excess return
-    mean_excess = excess_returns.mean() * TRADING_DAYS_PER_YEAR
-    return mean_excess / downside_dev
+    excess = aligned.iloc[:, 0] - aligned.iloc[:, 1]
+    te = excess.std()
+    if te > 0:
+        return (excess.mean() / te) * np.sqrt(TRADING_DAYS_PER_YEAR)
+    return None
 
-def calculate_rolling_sip_returns(fund_nav: pd.Series, months: int = 12) -> pd.Series:
-    """Calculate rolling 1Y SIP returns for the fund."""
-    # Resample to monthly
-    fund_monthly = fund_nav.resample('MS').first()
+def compute_appraisal_and_r2(fund_ret: pd.Series, bench_ret: pd.Series) -> Tuple[Optional[float], Optional[float]]:
+    """Calculate 1Y Appraisal Ratio and R-Squared."""
+    aligned = pd.concat([fund_ret, bench_ret], axis=1, join="inner").dropna()
+    if len(aligned) < 50:
+        return None, None
+        
+    # Take last 1Y (252 days)
+    aligned = aligned.iloc[-MIN_DAYS_1Y:]
+    if len(aligned) < 50:
+        return None, None
+        
+    f_r = aligned.iloc[:, 0]
+    b_r = aligned.iloc[:, 1]
     
-    if len(fund_monthly) < months + 1:
-        return pd.Series(dtype=float)
-        
-    returns = {}
-    for i in range(len(fund_monthly) - months):
-        f_invest = fund_monthly.iloc[i : i+months]
-        f_final = fund_monthly.iloc[i+months]
-        
-        # Fund SIP Return
-        f_units = 1000 / f_invest
-        f_val = f_units.sum() * f_final
-        f_ret = (f_val - (1000 * months)) / (1000 * months)
-        
-        returns[fund_monthly.index[i+months]] = f_ret
-        
-    return pd.Series(returns)
-
-def calculate_sip_stability(fund_nav: pd.Series) -> Optional[float]:
-    """Calculate SIP stability over the last 3 years (rolling 1Y SIPs)."""
-    # Need at least 2 years of data to have 1 year of rolling 1Y SIPs
-    if len(fund_nav) < MIN_DAYS_1Y * 2:
-        return None
-        
-    # Get last 3 years of NAV
-    recent_nav = fund_nav.iloc[-MIN_DAYS_3Y:]
-    rolling_sips = calculate_rolling_sip_returns(recent_nav, months=12)
+    # R-Squared
+    corr = f_r.corr(b_r)
+    r_squared = corr ** 2 if pd.notna(corr) else None
     
-    if len(rolling_sips) < 12:
-        return None
+    # Appraisal Ratio
+    cov = np.cov(b_r, f_r)[0, 1]
+    var = np.var(b_r, ddof=1)
+    if var > 0:
+        beta = cov / var
+        # Annualized Returns
+        f_ann = f_r.mean() * TRADING_DAYS_PER_YEAR
+        b_ann = b_r.mean() * TRADING_DAYS_PER_YEAR
+        alpha = f_ann - beta * b_ann
         
-    mean_sip = rolling_sips.mean()
-    std_sip = rolling_sips.std()
-    
-    if std_sip == 0:
-        return None
+        # Idiosyncratic Risk
+        residuals = f_r - beta * b_r
+        idio_risk = residuals.std() * np.sqrt(TRADING_DAYS_PER_YEAR)
         
-    return mean_sip / std_sip
+        appraisal = alpha / idio_risk if idio_risk > 0 else None
+    else:
+        appraisal = None
+        
+    return appraisal, r_squared
 
 # ===================================================================
 # Analysis Pipeline
@@ -189,60 +231,72 @@ def analyse_fund(
     fund_nav: pd.Series,
     equity_nav: pd.Series,
     gold_nav: pd.Series,
-    silver_nav: pd.Series,
     name: str,
     aum: float,
 ) -> dict:
     """Compute all metrics for a single fund."""
     
     n = len(fund_nav)
-    result = {"mfId": mf_id, "name": name, "aum": round(aum, 2)}
+    result = {"mfId": mf_id, "name": name, "aum": round(aum, 2), "data_days": n}
     
-    # Returns
     fund_rets = daily_returns(fund_nav)
     equity_rets = daily_returns(equity_nav)
     gold_rets = daily_returns(gold_nav)
-    silver_rets = daily_returns(silver_nav)
     
+    # 24m Scenario
+    mean_24m, sortino_24m = calculate_24m_scenario_sortino(fund_nav)
+    result["mean_24m"] = mean_24m
+    result["sortino_24m"] = sortino_24m
+    
+    # Max Drawdown
+    result["max_drawdown"] = max_drawdown(fund_rets)
+    
+    # Asymmetry Score (Up-Beta / Down-Beta) against Equity Index
+    up_beta, down_beta = compute_up_down_beta(fund_rets, equity_rets)
+    if up_beta is not None and down_beta is not None and down_beta > 0:
+        result["asymmetry_score"] = up_beta / down_beta
+    else:
+        result["asymmetry_score"] = None
+        
+    # Gold Upside Beta
+    result["gold_up_beta"] = compute_up_beta(fund_rets, gold_rets)
+    
+    # Volatility
+    result["volatility"] = fund_rets.std() * np.sqrt(TRADING_DAYS_PER_YEAR)
+    
+    # Appraisal Ratio & R-Squared
+    appraisal, r2 = compute_appraisal_and_r2(fund_rets, equity_rets)
+    result["appraisal_ratio"] = appraisal
+    result["r_squared_1y"] = r2
+    
+    # Manager Edge Decay Metrics
+    if n >= MIN_DAYS_3Y:
+        f_ret_3y = fund_rets.iloc[-MIN_DAYS_3Y:]
+        aligned_3y = pd.concat([f_ret_3y, equity_rets], axis=1, join="inner").dropna()
+        if not aligned_3y.empty:
+            result["ir_3y"] = compute_information_ratio(aligned_3y.iloc[:, 0], aligned_3y.iloc[:, 1])
+            result["vol_3y"] = aligned_3y.iloc[:, 0].std() * np.sqrt(TRADING_DAYS_PER_YEAR)
+            _, d_beta_3y = compute_up_down_beta(aligned_3y.iloc[:, 0], aligned_3y.iloc[:, 1])
+            result["downside_cap_3y"] = d_beta_3y
+        else:
+            result["ir_3y"] = result["vol_3y"] = result["downside_cap_3y"] = None
+            
+        f_ret_6m = fund_rets.iloc[-MIN_DAYS_6M:]
+        aligned_6m = pd.concat([f_ret_6m, equity_rets], axis=1, join="inner").dropna()
+        if not aligned_6m.empty:
+            result["ir_6m"] = compute_information_ratio(aligned_6m.iloc[:, 0], aligned_6m.iloc[:, 1])
+            result["vol_6m"] = aligned_6m.iloc[:, 0].std() * np.sqrt(TRADING_DAYS_PER_YEAR)
+            _, d_beta_6m = compute_up_down_beta(aligned_6m.iloc[:, 0], aligned_6m.iloc[:, 1])
+            result["downside_cap_6m"] = d_beta_6m
+        else:
+            result["ir_6m"] = result["vol_6m"] = result["downside_cap_6m"] = None
+    else:
+        result["ir_3y"] = result["vol_3y"] = result["downside_cap_3y"] = None
+        result["ir_6m"] = result["vol_6m"] = result["downside_cap_6m"] = None
+        
     # Basic Metrics
     result["cagr_3y"] = annualised_return(fund_nav, MIN_DAYS_3Y)
     result["cagr_5y"] = annualised_return(fund_nav, MIN_DAYS_5Y)
-    
-    # 1. Cycle Agility Score
-    eq_up_beta, eq_down_beta = compute_up_down_beta(fund_rets, equity_rets)
-    if eq_up_beta is not None and eq_down_beta is not None:
-        result["agility_score"] = eq_up_beta - eq_down_beta
-    else:
-        result["agility_score"] = None
-        
-    # 2. Precious Metals Upside Capture
-    gold_up_beta, _ = compute_up_down_beta(fund_rets, gold_rets)
-    silver_up_beta, _ = compute_up_down_beta(fund_rets, silver_rets)
-    
-    pm_betas = []
-    if gold_up_beta is not None:
-        pm_betas.append(gold_up_beta)
-    if silver_up_beta is not None:
-        pm_betas.append(silver_up_beta)
-        
-    if pm_betas:
-        result["pm_up_beta"] = np.mean(pm_betas)
-    else:
-        result["pm_up_beta"] = None
-        
-    # 3. Long-Term Risk-Adjusted Growth (Sortino)
-    if len(fund_rets) >= MIN_DAYS_1Y:
-        recent_rets = fund_rets.iloc[-MIN_DAYS_3Y:] if len(fund_rets) >= MIN_DAYS_3Y else fund_rets
-        result["sortino_3y"] = sortino_ratio(recent_rets)
-    else:
-        result["sortino_3y"] = None
-    
-    # 4. SIP Return Stability
-    result["sip_stability"] = calculate_sip_stability(fund_nav)
-    
-    # Data Quality
-    result["data_days"] = n
-    result["has_3y"] = n >= MIN_DAYS_3Y
 
     return result
 
@@ -253,57 +307,98 @@ def percentile_rank(series: pd.Series, higher_is_better: bool = True) -> pd.Seri
         ranked = 1 - ranked
     return ranked * 100
 
-def compute_composite_score(df: pd.DataFrame) -> pd.DataFrame:
+def compute_decision_tree_score(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Build composite score optimized for 1-year forward returns based on predictive metrics.
-    
-    Weights:
-    - Cycle Agility Score: 30%
-    - Precious Metals Upside Capture: 30%
-    - Sortino Ratio (3Y): 20%
-    - SIP Stability: 20%
+    Build a multi-stage non-linear score:
+    1. Base Score (Sortino, MDD, Mean_24m, Gold_Beta)
+    2. Hard Filters (Closet Indexer, AUM Bloat, Debt-Hugger, Bull Market Illusion)
+    3. Edge Decay Multipliers (IR, Vol, Downside Capture)
+    4. Alpha & Asymmetry Boosts (Top Quartile Appraisal & Asymmetry)
     """
+    df = df.copy()
     
-    score_components = {
-        "agility_score":        (True,  0.30),
-        "pm_up_beta":           (True,  0.30),
-        "sortino_3y":           (True,  0.20),
-        "sip_stability":        (True,  0.20),
+    # -------------------------------------------------------------------
+    # 0. Base Core Score (Linear Combination of foundational safety metrics)
+    # -------------------------------------------------------------------
+    core_components = {
+        "sortino_24m":  (True,  0.40),
+        "max_drawdown": (True,  0.30),
+        "mean_24m":     (True,  0.20),
+        "gold_up_beta": (True,  0.10),
     }
     
-    df = df.copy()
-    df["raw_score"] = 0.0
+    df["raw_core"] = 0.0
     applied_weight = pd.Series(0.0, index=df.index)
     
-    for col, (higher_better, weight) in score_components.items():
-        if col not in df.columns:
-            continue
+    for col, (higher_better, weight) in core_components.items():
+        if col not in df.columns: continue
         pctl = percentile_rank(df[col], higher_is_better=higher_better)
-        
-        # Funds with short history might have None/NaN for some metrics.
-        # Instead of just ignoring it (which scales up their other noisy metrics),
-        # give them a below-average percentile (40th) for the missing metric.
         pctl = pctl.fillna(40.0)
+        df["raw_core"] += pctl * weight
+        applied_weight += weight
         
-        contribution = pctl * weight
-        mask = pctl.notna()
-        df.loc[mask, "raw_score"] += contribution[mask]
-        applied_weight[mask] += weight
-        
-    df["score"] = np.where(
-        applied_weight > 0,
-        df["raw_score"] / applied_weight,
-        0
-    )
+    df["score"] = np.where(applied_weight > 0, df["raw_core"] / applied_weight, 0)
     
-    # Linear penalty based on data_days history
-    # 756 days (3y) or more -> penalty = 1.0 (no penalty)
-    # 252 days (1y) -> penalty = ~0.80
-    # < 50 days -> penalty = ~0.72
-    penalty = np.clip((df["data_days"] / MIN_DAYS_3Y) * 0.3 + 0.7, 0.5, 1.0)
-    df["score"] = df["score"] * penalty
+    # -------------------------------------------------------------------
+    # Stage 1: Hard Filters (Massive Penalties)
+    # -------------------------------------------------------------------
+    # a. Closet Indexer Penalty (R-Squared > 0.95)
+    r2 = df["r_squared_1y"].fillna(0)
+    filter_r2 = np.where(r2 > 0.95, 0.4, 1.0) # 60% penalty
     
-    df["score"] = df["score"].round(2)
+    # b. AUM Bloat Penalty (> 30,000 Cr)
+    aum = df["aum"].fillna(0)
+    filter_aum = np.where(aum > 30000, 0.7, 1.0)
+    filter_aum = np.where(aum > 50000, 0.5, filter_aum)
+    
+    # c. Debt-Hugger Penalty (mean_24m < 13%)
+    mean_ret = df["mean_24m"].fillna(0)
+    filter_debt = np.where(mean_ret < 0.13, 0.5, 1.0)
+    
+    # d. Bull Market Illusion (< 4 years data)
+    filter_seasoning = np.where(df["data_days"] < MIN_DAYS_4Y, 0.6, 1.0)
+    
+    stage1_multiplier = filter_r2 * filter_aum * filter_debt * filter_seasoning
+    df["score"] = df["score"] * stage1_multiplier
+    
+    # -------------------------------------------------------------------
+    # Stage 2: Manager Edge Decay Multipliers
+    # -------------------------------------------------------------------
+    for idx, row in df.iterrows():
+        decay_mult = 1.0
+        # IR Decay
+        ir_3y, ir_6m = row.get("ir_3y"), row.get("ir_6m")
+        if pd.notna(ir_3y) and pd.notna(ir_6m) and ir_3y > 0:
+            if ir_6m < (ir_3y * 0.8): decay_mult *= 0.8
+                
+        # Volatility Expansion
+        vol_3y, vol_6m = row.get("vol_3y"), row.get("vol_6m")
+        if pd.notna(vol_3y) and pd.notna(vol_6m) and vol_3y > 0:
+            if vol_6m > (vol_3y * 1.2): decay_mult *= 0.8
+                
+        # Downside Capture Decay
+        dc_3y, dc_6m = row.get("downside_cap_3y"), row.get("downside_cap_6m")
+        if pd.notna(dc_3y) and pd.notna(dc_6m) and dc_3y > 0:
+            if dc_6m > (dc_3y * 1.2): decay_mult *= 0.8
+            
+        df.at[idx, "score"] *= decay_mult
+
+    # -------------------------------------------------------------------
+    # Stage 3: Alpha & Asymmetry Boosts (Top Quartile)
+    # -------------------------------------------------------------------
+    # We apply a 20% score boost for funds in the top quartile of Appraisal Ratio,
+    # and a 20% boost for top quartile Asymmetry Score.
+    
+    appr_pctl = percentile_rank(df["appraisal_ratio"])
+    asym_pctl = percentile_rank(df["asymmetry_score"])
+    
+    boost_appr = np.where(appr_pctl >= 75.0, 1.2, 1.0)
+    boost_asym = np.where(asym_pctl >= 75.0, 1.2, 1.0)
+    
+    df["score"] = df["score"] * boost_appr * boost_asym
+    
+    # Normalize back to roughly a 0-100 scale logically (some might exceed 100, we can clip)
+    df["score"] = np.clip(df["score"], 0, 100).round(2)
     
     return df
 
@@ -314,12 +409,11 @@ def compute_composite_score(df: pd.DataFrame) -> pd.DataFrame:
 def main(date: Optional[str] = None):
     print("\n" + "=" * 70)
     print(f"  MULTI ASSET MUTUAL FUND SCORING - GEMINI MODEL")
-    print(f"  Target: Maximize 1-Year Returns via Cycle Management")
+    print(f"  Target: Non-Linear Decision Tree for 24m Horizon")
     print("=" * 70)
 
     provider = MfDataProvider(date=date)
     
-    # Load Equity Benchmark
     indices = provider.list_indices()
     equity_idx_id = indices.get(EQUITY_INDEX)
     if not equity_idx_id:
@@ -328,22 +422,12 @@ def main(date: Optional[str] = None):
         
     equity_df = provider.get_index_chart(equity_idx_id)
     equity_df["timestamp"] = pd.to_datetime(equity_df["timestamp"], utc=True)
-    equity_df = equity_df.sort_values("timestamp").reset_index(drop=True)
-    equity_nav = equity_df.set_index("timestamp")["nav"]
+    equity_nav = equity_df.sort_values("timestamp").set_index("timestamp")["nav"]
     
-    # Load Gold MF
-    gold_df = provider.get_mf_chart(GOLD_MF_ID)
+    gold_df = provider.get_mf_chart(GOLD_MF_ID, duration='5y')
     gold_df["timestamp"] = pd.to_datetime(gold_df["timestamp"], utc=True)
-    gold_df = gold_df.sort_values("timestamp").reset_index(drop=True)
-    gold_nav = gold_df.set_index("timestamp")["nav"]
+    gold_nav = gold_df.sort_values("timestamp").set_index("timestamp")["nav"]
     
-    # Load Silver MF
-    silver_df = provider.get_mf_chart(SILVER_MF_ID)
-    silver_df["timestamp"] = pd.to_datetime(silver_df["timestamp"], utc=True)
-    silver_df = silver_df.sort_values("timestamp").reset_index(drop=True)
-    silver_nav = silver_df.set_index("timestamp")["nav"]
-    
-    # Load Funds
     df_all = provider.list_all_mf()
     maa_df = df_all[df_all["subsector"] == SUBSECTOR].copy()
     print(f"  Found {len(maa_df)} Multi Asset Allocation funds")
@@ -355,15 +439,14 @@ def main(date: Optional[str] = None):
         aum = row.get("aum", 0) or 0
         
         try:
-            chart = provider.get_mf_chart(mf_id)
-            if len(chart) < 50: # Need at least some data
+            chart = provider.get_mf_chart(mf_id, duration='5y')
+            if len(chart) < 252:
                 continue
                 
             chart["timestamp"] = pd.to_datetime(chart["timestamp"], utc=True)
-            chart = chart.sort_values("timestamp").reset_index(drop=True)
-            fund_nav = chart.set_index("timestamp")["nav"]
+            fund_nav = chart.sort_values("timestamp").set_index("timestamp")["nav"]
             
-            metrics = analyse_fund(mf_id, fund_nav, equity_nav, gold_nav, silver_nav, name, aum)
+            metrics = analyse_fund(mf_id, fund_nav, equity_nav, gold_nav, name, aum)
             results.append(metrics)
             
         except Exception as e:
@@ -375,7 +458,7 @@ def main(date: Optional[str] = None):
         return
 
     df_results = pd.DataFrame(results)
-    df_scored = compute_composite_score(df_results)
+    df_scored = compute_decision_tree_score(df_results)
     
     # Rank
     df_scored["rank"] = df_scored["score"].rank(ascending=False, method="min").astype(int)
@@ -392,10 +475,17 @@ def main(date: Optional[str] = None):
     output["data_days"] = df_scored["data_days"]
     output["cagr_3y"] = df_scored["cagr_3y"].apply(lambda x: f"{x*100:.2f}" if pd.notna(x) else "")
     output["cagr_5y"] = df_scored["cagr_5y"].apply(lambda x: f"{x*100:.2f}" if pd.notna(x) else "")
-    output["agility_score"] = df_scored["agility_score"].apply(fmt)
-    output["pm_up_beta"] = df_scored["pm_up_beta"].apply(fmt)
-    output["sortino_3y"] = df_scored["sortino_3y"].apply(fmt)
-    output["sip_stability"] = df_scored["sip_stability"].apply(fmt)
+    output["mean_24m"] = df_scored["mean_24m"].apply(fmt)
+    output["sortino_24m"] = df_scored["sortino_24m"].apply(fmt)
+    output["max_drawdown"] = df_scored["max_drawdown"].apply(fmt)
+    output["appraisal_ratio"] = df_scored["appraisal_ratio"].apply(fmt)
+    output["r_squared_1y"] = df_scored["r_squared_1y"].apply(fmt)
+    output["asymmetry_score"] = df_scored["asymmetry_score"].apply(fmt)
+    output["gold_up_beta"] = df_scored["gold_up_beta"].apply(fmt)
+    output["ir_3y"] = df_scored["ir_3y"].apply(fmt)
+    output["ir_6m"] = df_scored["ir_6m"].apply(fmt)
+    output["downside_cap_3y"] = df_scored["downside_cap_3y"].apply(fmt)
+    output["downside_cap_6m"] = df_scored["downside_cap_6m"].apply(fmt)
     output["aum"] = df_scored["aum"]
     
     # Save
@@ -405,7 +495,7 @@ def main(date: Optional[str] = None):
     
     # Display Top 10
     print("\n" + "=" * 70)
-    print("  TOP 10 FUNDS (Gemini Model)")
+    print("  TOP 10 FUNDS (Gemini Model - Decision Tree Multi Asset)")
     print("=" * 70)
     print(output.head(10).to_string(index=False))
     print("\n")
