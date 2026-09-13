@@ -20,8 +20,8 @@ Review the investment scenario established in `tasks/2_algorithm.md`:
   - **LTCG Tax Optimization:** Under Indian tax law, equity mutual fund units require a minimum holding period of 1 year to qualify for Long Term Capital Gains (LTCG) tax treatment (avoiding higher Short Term Capital Gains tax). A 1-year hold following a 1-year SIP guarantees that even the final SIP installment (bought at Month 12) completes at least 1 full year of seasoning by Month 24 (1 year minimum, 2 years preferred for optimal compounding and tax efficiency).
   - **Disciplined Rotation Horizon:** A 2-year total cycle provides a realistic, practical timeframe for tactical portfolio review and capital rotation without excessive turnover, exit load penalties, or transaction drag.
   - **Accumulation vs. Hold Dynamics:** During the second year (months 13–24), the investor loses the dollar-cost averaging cushion of ongoing SIPs. A severe market downturn during this hold phase strikes the full accumulated corpus.
-- **Optimization Metric (Model's Discretion):**
-  - **The model decides its own optimization metric.** Rather than blindly optimizing a predefined formula, you should research and determine the most appropriate objective function (e.g., hybrid cashflow XIRR, risk-adjusted terminal wealth, downside-penalized return, or a custom utility metric) that best captures success for this scenario from a financial perspective.
+- **Optimization Metric & Indicators (Model's Discretion):**
+  - **The model decides its own optimization metric and indicators.** Rather than blindly optimizing a rigid predefined 24-month calculation function, you should select specific financial indicators using the NAV data (e.g., downside-penalized return, volatility contraction, custom risk-adjusted metrics) that ensure the fund will perform well consistently for this scenario.
 
 ---
 
@@ -95,8 +95,9 @@ You will analyze and enhance the algorithms for all four categories:
 Follow this 4-step workflow:
 
 ### Step 1: Retrospective & Code Post-Mortem
-- Review `results/ranks/xirr.csv` to quickly analyze macro trends, benchmark movements, and your historical performance vs. competitors.
-- Inspect your existing script (`src/algorithms/{SECTOR}_{model}.py`) and previous output in `results/{SECTOR}_{model}.csv`.
+- **First, conduct a comprehensive review** of your existing script (`src/algorithms/{SECTOR}_{model}.py`), previous outputs in `results/{SECTOR}_{model}.csv`, and historical performance trends in `results/ranks/xirr.csv`.
+- **Compare and Contrast:** Understand the current situation by comparing your performance against benchmark movements, category medians, and competitor picks.
+- **Identify Wins and Losses:** Explicitly point out the current *great decisions* (factors/logic that genuinely worked) and *big mistakes* (flawed assumptions, data-mining biases, or missing risk controls) made by your previous algorithm.
 - Upgrade data ingestion to `duration='5y'` for daily NAV data.
 - Diagnose mathematical errors, calculation bugs, lookahead biases, or flawed assumptions (e.g., misaligned dates with index charts, improper annualization).
 - Critically evaluate which historical signals had genuine predictive merit versus which were spurious noise.
@@ -127,7 +128,7 @@ Follow this 4-step workflow:
 - [ ] **Unstaged Experiments:** Iterative experiment logs and test runs documented in `results/experiments/` (kept unstaged).
 - [ ] **Code Updates:** Clean, production-ready algorithm implementations in `src/algorithms/{SECTOR}_{model}.py` for all 4 sectors.
 - [ ] **Final Results:** Generated ranking sheets in `results/{SECTOR}_{model}.csv`.
-- [ ] **Retrospective & Self-Review Report:**
+- [ ] **Retrospective & Self-Review Report:** *(Note: Do not stage your report, it is for self-review only. You may keep it in `results/experiments/` or as an unstaged artifact.)*
   1. Post-mortem of previous script and mistakes identified (leveraging `results/ranks/xirr.csv` trend analysis).
   2. Financial research, economic hypotheses, and index risk analysis.
   3. Summary of experimental iterations and findings.
