@@ -23,3 +23,6 @@ This repository was built by following a series of tasks, each designed to build
 ## 4. Documentation (`tasks/4_document.md`)
 **Goal**: Document the project.
 -   Created this documentation structure to explain the project to developers and investors.
+
+## 5. Retrospective and Improvements (`tasks/5_retrospective.md`)
+**Goal**: Conduct quantitative post-mortems and iteratively improve scoring algorithms using 5-year daily NAV data grounded in financial first principles and index risk.

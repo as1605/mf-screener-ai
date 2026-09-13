@@ -76,6 +76,8 @@ SIP_AMOUNT = 10000.0
 
 MIN_DAYS = 365
 MIN_SCENARIO_COUNT = 3
+MIN_FULL_CYCLE_WINDOWS = 12
+MIN_QUALIFIED_HISTORY_YEARS = 3.0
 MAX_STALE_DAYS = 45
 SCENARIO_LOOKBACK_MONTHS = 60
 MAX_DIAGNOSTIC_SNAPSHOTS = 3
@@ -463,14 +465,14 @@ def analyse_fund(
 def history_confidence(years: float) -> float:
     if pd.isna(years):
         return 0.55
-    if years < 1.0:
-        return 0.55
     if years < 2.0:
-        return 0.72
+        return 0.45
     if years < 3.0:
-        return 0.88
+        return 0.60
+    if years < 4.0:
+        return 0.78
     if years < 5.0:
-        return 0.96
+        return 0.90
     return 1.0
 
 
@@ -551,9 +553,15 @@ def compute_scores(metrics_df: pd.DataFrame) -> pd.DataFrame:
         * pd.to_numeric(df["capacity_multiplier"], errors="coerce").fillna(0.94)
         * (0.70 + 0.30 * pd.to_numeric(df["xirr_coverage"], errors="coerce").fillna(0.0))
     )
-    df["score"] = (raw * confidence_haircut).clip(0, 100)
-    df["rank"] = df["score"].rank(ascending=False, method="first").astype(int)
-    return df.sort_values(["rank", "score"], ascending=[True, False]).reset_index(drop=True)
+    qualified = (
+        (pd.to_numeric(df.get("history_years"), errors="coerce") >= MIN_QUALIFIED_HISTORY_YEARS)
+        & (pd.to_numeric(df.get("hybrid_window_n"), errors="coerce") >= MIN_FULL_CYCLE_WINDOWS)
+    )
+    df["evidence_qualified"] = qualified
+    df["score"] = (raw * confidence_haircut * np.where(qualified, 1.0, 0.55)).clip(0, 100)
+    df = df.sort_values(["evidence_qualified", "score"], ascending=[False, False]).reset_index(drop=True)
+    df["rank"] = np.arange(1, len(df) + 1, dtype=int)
+    return df
 
 
 def latest_market_regime(bench_nav: pd.Series) -> str:
@@ -572,7 +580,7 @@ def load_funds(provider: MfDataProvider, bench_nav: pd.Series) -> List[FundData]
         mf_id = str(row["mfId"])
         name = str(row["name"])
         try:
-            nav = clean_nav_to_series(provider.get_mf_chart(mf_id))
+            nav = clean_nav_to_series(provider.get_mf_chart(mf_id, duration="5y"))
         except Exception as exc:
             logger.warning("Skipping %s: failed to load NAV (%s)", mf_id, exc)
             continue
@@ -760,6 +768,7 @@ def main(date: Optional[str] = None) -> None:
         "name",
         "rank",
         "score",
+        "evidence_qualified",
         "data_days",
         "subsector",
         "cagr_1y",

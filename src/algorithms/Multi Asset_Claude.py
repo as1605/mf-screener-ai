@@ -96,8 +96,9 @@ DAYS_PER_YEAR = 365.25
 WEEKLY_RF = (1.0 + RISK_FREE_RATE) ** (1.0 / WEEKS_PER_YEAR) - 1.0
 
 SIP_MONTHS = 12
+HOLD_MONTHS = 12
 SIP_AMOUNT = 1.0
-SIP_HURDLE = 0.08                # 8 % SIP-XIRR threshold for "consistency" metric
+SIP_HURDLE = 0.10                # 10 % SIP-XIRR threshold for 24m hybrid horizon
 
 # Track-record thresholds
 MIN_WEEKS_FOR_RANK = 26          # < this  -> score 0, but row still emitted
@@ -105,7 +106,7 @@ MIN_WEEKS_FULL_TRACK = 104       # < this  -> 0.85 haircut on composite
 TRACK_RECORD_HAIRCUT = 0.85
 
 # RBSA windows
-ROLLING_RBSA_WINDOW = 52         # 1-year window for time-varying weights
+ROLLING_RBSA_WINDOW = 78         # 1.5-year window for time-varying weights
 ROLLING_RBSA_STEP = 4            # advance by 4 weeks per snapshot
 CURRENT_RBSA_WINDOW = 52         # 1-year window for the "today" mix
 MIN_BRINSON_SNAPSHOTS = 6        # need 6+ rolling weight snapshots for skill pillar
@@ -114,30 +115,16 @@ CAGR_LB_3Y = 156                 # weeks
 CAGR_LB_5Y = 260
 DOWNSIDE_LB_3Y = 156
 
-# Forward-looking 2026 target mix.  Tunable here.
-# Rationale (synthesised from market-outlook research, May 2026):
-#   - Equity ~60 %: moderate earnings-driven returns, large-cap preferred.
-#   - Debt   ~15 %: RBI 50-75 bps cuts ahead = bond tailwind.
-#   - Gold   ~15 %: keep diversifier but trim after +72 % in 2025.
-#   - Silver ~10 %: structural deficit but profit-taking risk after +122 %.
-TARGET_MIX_2026 = {
-    "eq":     0.60,
-    "debt":   0.15,
-    "gold":   0.15,
-    "silver": 0.10,
-}
-METAL_OVERWEIGHT_PENALTY = 1.5   # over-weighting gold/silver vs target hits 1.5x harder
-
 # Active-sleeve threshold (used in diversification metrics)
 ACTIVE_SLEEVE_THRESHOLD = 0.05
 
 # Composite pillar weights (sum to 1.0)
 PILLAR_WEIGHTS = {
-    "p1_alloc_profile": 0.25,
-    "p2_outlook_fit":   0.15,
-    "p3_alloc_skill":   0.25,
-    "p4_downside":      0.25,
-    "p5_sip_history":   0.10,
+    "p1_alloc_profile":      0.20,
+    "p2_alloc_adaptability": 0.15,
+    "p3_alloc_skill":        0.25,
+    "p4_downside":           0.25,
+    "p5_sip_history":        0.15,
 }
 
 OUTPUT_DIR = ROOT_DIR / "results"
@@ -193,14 +180,14 @@ def load_asset_proxies(provider: MfDataProvider) -> Dict[str, pd.Series]:
     out["eq"] = eq_nav.pct_change().dropna()
     out["eq"].name = "eq"
 
-    gold_chart = provider.get_mf_chart(GOLD_PROXY)
+    gold_chart = provider.get_mf_chart(GOLD_PROXY, duration='5y')
     gold_nav = to_clean_weekly_nav(gold_chart)
     if gold_nav is None or len(gold_nav) < 30:
         raise RuntimeError(f"Insufficient {GOLD_PROXY} fund data")
     out["gold"] = gold_nav.pct_change().dropna()
     out["gold"].name = "gold"
 
-    silver_chart = provider.get_mf_chart(SILVER_PROXY)
+    silver_chart = provider.get_mf_chart(SILVER_PROXY, duration='5y')
     silver_nav = to_clean_weekly_nav(silver_chart)
     if silver_nav is None or len(silver_nav) < 30:
         logger.warning(f"Silver proxy {SILVER_PROXY} unavailable - silver sleeve disabled")
@@ -574,33 +561,35 @@ def _xirr_bisect(
     return 0.5 * (lo + hi)
 
 
-def sip_xirr_at(monthly: pd.Series, start_idx: int, months: int = SIP_MONTHS) -> Optional[float]:
-    """Annualised XIRR of a monthly SIP starting at monthly[start_idx]."""
-    end_idx = start_idx + months
+def sip_xirr_at(monthly: pd.Series, start_idx: int, sip_months: int = SIP_MONTHS, hold_months: int = HOLD_MONTHS) -> Optional[float]:
+    """Annualised XIRR of a monthly SIP starting at monthly[start_idx] followed by a hold period."""
+    total_months = sip_months + hold_months
+    end_idx = start_idx + total_months
     if start_idx < 0 or end_idx >= len(monthly):
         return None
-    invest_navs = monthly.iloc[start_idx:end_idx]
+    invest_navs = monthly.iloc[start_idx:start_idx+sip_months]
     redeem_nav = monthly.iloc[end_idx]
     if (invest_navs <= 0).any() or redeem_nav <= 0:
         return None
-    invest_dates = monthly.index[start_idx:end_idx]
+    invest_dates = monthly.index[start_idx:start_idx+sip_months]
     redeem_date = monthly.index[end_idx]
 
     units = SIP_AMOUNT / invest_navs.values
     redeem_value = float(units.sum() * redeem_nav)
-    cashflows = [-float(SIP_AMOUNT)] * months + [redeem_value]
+    cashflows = [-float(SIP_AMOUNT)] * sip_months + [redeem_value]
     times = [(d - invest_dates[0]).days / DAYS_PER_YEAR for d in invest_dates]
     times.append((redeem_date - invest_dates[0]).days / DAYS_PER_YEAR)
     return _xirr_bisect(cashflows, times)
 
 
-def rolling_sip_xirr_series(monthly: pd.Series, months: int = SIP_MONTHS) -> pd.Series:
-    """Series of realised 1Y SIP XIRRs indexed by SIP-start month."""
-    if len(monthly) < months + 1:
+def rolling_sip_xirr_series(monthly: pd.Series, sip_months: int = SIP_MONTHS, hold_months: int = HOLD_MONTHS) -> pd.Series:
+    """Series of realised hybrid SIP XIRRs indexed by SIP-start month."""
+    total_months = sip_months + hold_months
+    if len(monthly) < total_months + 1:
         return pd.Series(dtype=float)
     out = {}
-    for i in range(len(monthly) - months):
-        r = sip_xirr_at(monthly, i, months=months)
+    for i in range(len(monthly) - total_months):
+        r = sip_xirr_at(monthly, i, sip_months=sip_months, hold_months=hold_months)
         if r is not None and np.isfinite(r):
             out[monthly.index[i]] = r
     return pd.Series(out, dtype=float).sort_index()
@@ -621,21 +610,47 @@ def sip_history_stats(sip_series: pd.Series) -> Dict[str, Optional[float]]:
 # Forward outlook fit and diversification metrics
 # ===================================================================
 
-def outlook_fit_distance(weights: Dict[str, float]) -> float:
-    """Asymmetric squared distance from TARGET_MIX_2026.
+def allocation_adaptability(rolling_weights_df, asset_rets_dict, fwd_weeks=13):
+    """Measure allocation timing skill via rank correlation of weight changes
+    with subsequent asset-class returns. Funds that shift toward assets that
+    subsequently outperform demonstrate genuine allocation skill.
 
-    Returns a positive number; smaller = closer to target = better.
-    The pillar uses sign=-1 so larger distance lowers the score.
+    Uses Spearman rank correlation (not raw products) to normalize away the
+    tiny magnitude of RBSA weight changes — focusing on directional correctness.
     """
-    dist = 0.0
-    for asset, target in TARGET_MIX_2026.items():
-        w = weights.get(asset, 0.0)
-        diff = w - target
-        if asset in ("gold", "silver") and diff > 0:
-            dist += METAL_OVERWEIGHT_PENALTY * (diff ** 2)
-        else:
-            dist += diff ** 2
-    return float(dist)
+    if rolling_weights_df is None or len(rolling_weights_df) < 4:
+        return None
+    dw = rolling_weights_df.diff().dropna()
+    if len(dw) < 2:
+        return None
+
+    from scipy.stats import spearmanr
+    corrs = []
+    for i in range(len(dw) - 1):
+        dt = dw.index[i]
+        assets_with_data = []
+        weight_changes = []
+        fwd_returns = []
+        for asset in ['eq', 'gold', 'silver', 'cash']:
+            if asset not in asset_rets_dict or asset not in dw.columns:
+                continue
+            wc = dw.iloc[i].get(asset, 0.0)
+            if wc == 0 or not np.isfinite(wc):
+                continue
+            fwd = asset_rets_dict[asset].loc[asset_rets_dict[asset].index > dt].head(fwd_weeks)
+            if len(fwd) < fwd_weeks // 2:
+                continue
+            fwd_ret = float((1 + fwd).prod() - 1)
+            assets_with_data.append(asset)
+            weight_changes.append(wc)
+            fwd_returns.append(fwd_ret)
+
+        if len(assets_with_data) >= 3:
+            rho, _ = spearmanr(weight_changes, fwd_returns)
+            if np.isfinite(rho):
+                corrs.append(rho)
+
+    return float(np.mean(corrs)) if len(corrs) >= 2 else None
 
 
 def diversification_index(weights: Dict[str, float]) -> float:
@@ -695,8 +710,8 @@ def compute_composite(features_df: pd.DataFrame) -> pd.DataFrame:
     )
     p2 = _pillar_score(
         out,
-        sub_weights={"outlook_fit": 1.0},
-        sub_signs={"outlook_fit": -1},  # smaller distance is better
+        sub_weights={"alloc_adaptability": 1.0},
+        sub_signs={"alloc_adaptability": +1},  # larger correlation is better
     )
     p3 = _pillar_score(
         out,
@@ -730,14 +745,14 @@ def compute_composite(features_df: pd.DataFrame) -> pd.DataFrame:
     # pillar (NaN) get the neutral median 50 - they aren't penalised for not
     # having the data, they're penalised via the track-record haircut.
     out["p1_alloc_profile"] = (p1.rank(pct=True, na_option="keep") * 100.0).fillna(50.0)
-    out["p2_outlook_fit"]   = (p2.rank(pct=True, na_option="keep") * 100.0).fillna(50.0)
+    out["p2_alloc_adaptability"]   = (p2.rank(pct=True, na_option="keep") * 100.0).fillna(50.0)
     out["p3_alloc_skill"]   = (p3.rank(pct=True, na_option="keep") * 100.0).fillna(50.0)
     out["p4_downside"]      = (p4.rank(pct=True, na_option="keep") * 100.0).fillna(50.0)
     out["p5_sip_history"]   = (p5.rank(pct=True, na_option="keep") * 100.0).fillna(50.0)
 
     out["composite_raw"] = (
         PILLAR_WEIGHTS["p1_alloc_profile"] * out["p1_alloc_profile"] +
-        PILLAR_WEIGHTS["p2_outlook_fit"]   * out["p2_outlook_fit"] +
+        PILLAR_WEIGHTS["p2_alloc_adaptability"]   * out["p2_alloc_adaptability"] +
         PILLAR_WEIGHTS["p3_alloc_skill"]   * out["p3_alloc_skill"] +
         PILLAR_WEIGHTS["p4_downside"]      * out["p4_downside"] +
         PILLAR_WEIGHTS["p5_sip_history"]   * out["p5_sip_history"]
@@ -757,7 +772,7 @@ def _empty_feature_row(mf_id: str, name: str, aum: float, data_days: int) -> Dic
         "eq_weight": None, "debt_weight": None,
         "gold_weight": None, "silver_weight": None,
         "diversification": None, "n_active_sleeves": None,
-        "outlook_fit": None,
+        "alloc_adaptability": None,
         "strategic_alpha": None, "tactical_alpha": None, "selection_alpha": None,
         "sortino_3y": None, "cdar_5pct": None, "calmar_3y": None,
         "pain_index": None, "dd_now": None,
@@ -812,7 +827,7 @@ def build_fund_features(
         "silver_weight": current_mix["silver"],
         "diversification": diversification_index(current_mix),
         "n_active_sleeves": n_active_sleeves(current_mix),
-        "outlook_fit": outlook_fit_distance(current_mix),
+        "alloc_adaptability": allocation_adaptability(rolling_w, asset_rets_dict),
         "strategic_alpha": skill["strategic_alpha"],
         "tactical_alpha": skill["tactical_alpha"],
         "selection_alpha": skill["selection_alpha"],
@@ -865,7 +880,7 @@ def main(date: Optional[str] = None) -> None:
         name = row["name"]
         aum = float(row.get("aum", 0) or 0)
         try:
-            chart = provider.get_mf_chart(mf_id)
+            chart = provider.get_mf_chart(mf_id, duration='5y')
             nav = to_clean_weekly_nav(chart)
             if nav is None or len(nav) < 2:
                 skipped.append((mf_id, name, "no NAV data"))
@@ -908,7 +923,7 @@ def main(date: Optional[str] = None) -> None:
     # Funds with < 26w of data: explicitly score 0 and zero-out pillars in CSV
     no_data_mask = df["data_days"] < (MIN_WEEKS_FOR_RANK * 7)
     df.loc[no_data_mask, "score"] = 0.0
-    for col in ("p1_alloc_profile", "p2_outlook_fit", "p3_alloc_skill",
+    for col in ("p1_alloc_profile", "p2_alloc_adaptability", "p3_alloc_skill",
                 "p4_downside", "p5_sip_history"):
         df.loc[no_data_mask, col] = 0.0
 
@@ -921,10 +936,6 @@ def main(date: Optional[str] = None) -> None:
     for k, v in PILLAR_WEIGHTS.items():
         print(f"  {k:<24} {v*100:>6.1f}%")
     print(f"  Track-record haircut for funds < {MIN_WEEKS_FULL_TRACK} weeks: x{TRACK_RECORD_HAIRCUT}")
-    print(f"  Forward target mix (eq/debt/gold/silver): "
-          f"{TARGET_MIX_2026['eq']:.2f} / {TARGET_MIX_2026['debt']:.2f} / "
-          f"{TARGET_MIX_2026['gold']:.2f} / {TARGET_MIX_2026['silver']:.2f} "
-          f"(metal over-weight penalty x{METAL_OVERWEIGHT_PENALTY})")
 
     # ---- Format output ----
     pct_fmt = lambda v: f"{v*100:.2f}" if pd.notna(v) else ""
@@ -946,7 +957,7 @@ def main(date: Optional[str] = None) -> None:
     out["diversification"] = df["diversification"].apply(r_fmt)
     out["n_active_sleeves"] = df["n_active_sleeves"].apply(
         lambda v: int(v) if pd.notna(v) else "")
-    out["outlook_fit"] = df["outlook_fit"].apply(r_fmt)
+    out["alloc_adaptability"] = df["alloc_adaptability"].apply(r_fmt)
     out["strategic_alpha"] = df["strategic_alpha"].apply(pct_fmt)
     out["tactical_alpha"] = df["tactical_alpha"].apply(pct_fmt)
     out["sortino_3y"] = df["sortino_3y"].apply(r_fmt)
@@ -957,7 +968,7 @@ def main(date: Optional[str] = None) -> None:
     out["sip_1y_p50"] = df["sip_1y_p50"].apply(pct_fmt)
     out["sip_consistency"] = df["sip_consistency"].apply(r_fmt)
     out["p1_alloc_profile"] = df["p1_alloc_profile"].round(2)
-    out["p2_outlook_fit"] = df["p2_outlook_fit"].round(2)
+    out["p2_alloc_adaptability"] = df["p2_alloc_adaptability"].round(2)
     out["p3_alloc_skill"] = df["p3_alloc_skill"].round(2)
     out["p4_downside"] = df["p4_downside"].round(2)
     out["p5_sip_history"] = df["p5_sip_history"].round(2)

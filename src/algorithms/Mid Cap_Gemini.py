@@ -5,17 +5,14 @@ import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
 import warnings
-from scipy.stats import spearmanr
 from scipy.optimize import brentq
+from scipy.stats import linregress
 
-# Add project root to path to allow imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-
 from src.mf_data_provider import MfDataProvider
 
 warnings.filterwarnings("ignore")
 
-# Define Constants
 RISK_FREE_RATE = 0.065
 SECTOR = "Mid Cap"
 MODEL = "Gemini"
@@ -35,17 +32,15 @@ def _xirr(cashflows):
     except:
         return None
 
-def calc_sip_xirr(nav_series, start_date, end_date, monthly_amount=10000):
+def calc_24m_sip_hold_xirr(nav_series, start_date, monthly_amount=10000):
+    end_date = start_date + pd.DateOffset(months=24)
     nav_subset = nav_series.loc[start_date:end_date]
     if nav_subset.empty:
         return None
-    
-    buys = pd.date_range(start=start_date, end=end_date, freq='MS')
+    buys = pd.date_range(start=start_date, periods=12, freq='MS')
     units = 0.0
     cashflows = []
-    
     for buy_date in buys:
-        # Find next available NAV
         available = nav_subset.loc[buy_date:]
         if available.empty:
             continue
@@ -53,119 +48,156 @@ def calc_sip_xirr(nav_series, start_date, end_date, monthly_amount=10000):
         nav_val = available.iloc[0]
         units += monthly_amount / nav_val
         cashflows.append((actual_date, -monthly_amount))
-        
-    if len(cashflows) < 6:
+    if len(cashflows) < 12:
         return None
-        
-    final_date = nav_subset.index[-1]
-    final_nav = nav_subset.iloc[-1]
+    available_end = nav_subset.loc[:end_date]
+    if available_end.empty:
+        return None
+    final_date = available_end.index[-1]
+    final_nav = available_end.iloc[-1]
     final_value = units * final_nav
     cashflows.append((final_date, final_value))
-    
     return _xirr(cashflows)
 
-def get_swing_elasticity(fund_nav, bench_nav):
-    if len(bench_nav) < 250:
-        return 0.0, 0.0
-    
-    # Calculate weekly returns to smooth out daily noise and improve alignment
-    fund_weekly = fund_nav.resample('W').last().dropna()
-    bench_weekly = bench_nav.resample('W').last().dropna()
-    
-    fund_ret = fund_weekly.pct_change().dropna()
-    bench_ret = bench_weekly.reindex(fund_weekly.index).ffill().pct_change().dropna()
-    
-    aligned = pd.concat([fund_ret, bench_ret], axis=1).dropna()
-    aligned.columns = ['fund', 'bench']
-    
-    if len(aligned) < 50: # Weekly data, 50 weeks is ~1 year
-        return 0.0, 0.0
-        
-    down_market = aligned[aligned['bench'] < 0]
-    down_capture = down_market['fund'].mean() / down_market['bench'].mean() if len(down_market) > 0 and down_market['bench'].mean() < 0 else 1.0
-    
-    up_market = aligned[aligned['bench'] > 0]
-    up_capture = up_market['fund'].mean() / up_market['bench'].mean() if len(up_market) > 0 and up_market['bench'].mean() > 0 else 1.0
-    
-    swing_elasticity = up_capture - down_capture
-    # print(f"DEBUG: len(aligned) = {len(aligned)}")
-    return float(swing_elasticity), float(down_capture)
+def get_max_drawdown(nav_series):
+    roll_max = nav_series.cummax()
+    drawdown = nav_series / roll_max - 1.0
+    return drawdown.min()
 
-def calc_momentum(fund_nav, bench_nav, days):
-    cutoff = fund_nav.index[-1] - timedelta(days=days)
-    f_subset = fund_nav.loc[cutoff:]
-    
-    b_subset = bench_nav.reindex(f_subset.index).ffill()
-    
-    if len(f_subset) < 20 or len(b_subset) < 20:
-        return 0.0
-        
-    f_ret = f_subset.pct_change().dropna()
-    b_ret = b_subset.pct_change().dropna()
-    
+def get_sortino_and_asymmetry(fund_nav, bench_nav, risk_free_rate=0.065):
+    f_ret = fund_nav.pct_change().dropna()
+    b_ret = bench_nav.pct_change().dropna()
     aligned = pd.concat([f_ret, b_ret], axis=1).dropna()
     if aligned.empty:
-        return 0.0
+        return 0.0, 1.0
+    aligned.columns = ['fund', 'bench']
+    
+    excess_ret = aligned['fund'] - (risk_free_rate / 252)
+    down_std = excess_ret[excess_ret < 0].std()
+    sortino = 0.0
+    if down_std > 0:
+        sortino = (excess_ret.mean() / down_std) * np.sqrt(252)
         
-    excess = aligned.iloc[:, 0] - aligned.iloc[:, 1]
-    std = excess.std()
-    if std == 0:
-        return 0.0
-    return (excess.mean() / std) * np.sqrt(252)
+    up_market = aligned[aligned['bench'] > 0]
+    down_market = aligned[aligned['bench'] < 0]
+    
+    up_beta = up_market['fund'].mean() / up_market['bench'].mean() if len(up_market) > 0 and up_market['bench'].mean() != 0 else 1.0
+    down_beta = down_market['fund'].mean() / down_market['bench'].mean() if len(down_market) > 0 and down_market['bench'].mean() != 0 else 1.0
+    
+    asym = up_beta / down_beta if down_beta > 0 else 1.0
+    return sortino, asym
 
-def calculate_fund_metrics(fund_nav, bench_nav, eval_date):
-    fund_nav = fund_nav.loc[:eval_date]
-    bench_nav = bench_nav.loc[:eval_date]
+def calc_ir(f_ret, b_ret):
+    excess = f_ret - b_ret
+    if excess.std() == 0:
+        return 0.0
+    return (excess.mean() / excess.std()) * np.sqrt(252)
+
+def calc_vol(f_ret):
+    return f_ret.std() * np.sqrt(252)
+
+def calc_down_cap(f_ret, b_ret):
+    aligned = pd.concat([f_ret, b_ret], axis=1).dropna()
+    aligned.columns = ['fund', 'bench']
+    down = aligned[aligned['bench'] < 0]
+    if len(down) == 0 or down['bench'].mean() == 0:
+        return 1.0
+    return down['fund'].mean() / down['bench'].mean()
+
+def calc_appraisal_and_r2(f_ret, b_ret):
+    import pandas as pd
+    import numpy as np
+    aligned = pd.concat([f_ret, b_ret], axis=1).dropna()
+    if len(aligned) < 20:
+        return 0.0, 0.0
+    Y = aligned.iloc[:, 0]
+    X = aligned.iloc[:, 1]
+    
+    slope, intercept, r_value, p_value, std_err = linregress(X, Y)
+    
+    alpha_daily = intercept
+    residuals = Y - (intercept + slope * X)
+    idio_risk_daily = residuals.std()
+    
+    alpha_ann = alpha_daily * 252
+    idio_risk_ann = idio_risk_daily * np.sqrt(252)
+    
+    appraisal = alpha_ann / idio_risk_ann if idio_risk_ann > 0 else 0.0
+    r_squared = r_value**2
+    return appraisal, r_squared
+
+def calculate_fund_metrics(fund_nav, bench_nav, current_date):
+    fund_nav = fund_nav.loc[:current_date]
+    bench_nav = bench_nav.loc[:current_date]
     
     if len(fund_nav) < 250:
         return None
         
-    # Consistency (Rolling 1Y SIP Win Rate over last 2 years)
-    start_eval = eval_date - timedelta(days=2*365)
-    rolling_dates = pd.date_range(start=start_eval, end=eval_date-timedelta(days=365), freq='ME')
+    start_eval = fund_nav.index[0]
+    end_eval = fund_nav.index[-1] - pd.DateOffset(months=24)
     
-    wins = 0
-    total = 0
-    for d in rolling_dates:
-        fx = calc_sip_xirr(fund_nav, d, d + timedelta(days=365))
-        bx = calc_sip_xirr(bench_nav, d, d + timedelta(days=365))
-        if fx is not None and bx is not None:
-            total += 1
-            if fx > bx:
-                wins += 1
+    fund_xirrs = []
+    bench_xirrs = []
+    
+    if start_eval < end_eval:
+        rolling_dates = pd.date_range(start=start_eval, end=end_eval, freq='MS')
+        for d in rolling_dates:
+            fx = calc_24m_sip_hold_xirr(fund_nav, d)
+            bx = calc_24m_sip_hold_xirr(bench_nav, d)
+            if fx is not None and bx is not None:
+                fund_xirrs.append(fx)
+                bench_xirrs.append(bx)
                 
-    win_rate = (wins / total) if total > 0 else 0.5
+    win_rate = np.mean([1 if f > b else 0 for f, b in zip(fund_xirrs, bench_xirrs)]) if fund_xirrs else 0.0
+    min_xirr = np.min(fund_xirrs) if fund_xirrs else -1.0
+    avg_xirr = np.mean(fund_xirrs) if fund_xirrs else 0.0
     
-    # Swing & Quality
-    swing_elasticity, down_capture = get_swing_elasticity(fund_nav.loc[eval_date-timedelta(days=3*365):], 
-                                                          bench_nav.loc[eval_date-timedelta(days=3*365):])
-                                                          
-    # Momentum (3M, 6M)
-    ir_3m = calc_momentum(fund_nav, bench_nav, 90)
-    ir_6m = calc_momentum(fund_nav, bench_nav, 180)
+    mdd = get_max_drawdown(fund_nav)
+    sortino, asym = get_sortino_and_asymmetry(fund_nav, bench_nav)
     
-    # Sortino Ratio
-    f_weekly = fund_nav.resample('W').last().dropna()
-    f_ret = f_weekly.pct_change().dropna()
-    if not f_ret.empty:
-        excess = f_ret - (RISK_FREE_RATE/52)
-        down_std = excess[excess < 0].std()
-        sortino = (excess.mean() / down_std) * np.sqrt(52) if down_std > 0 else 0
-    else:
-        sortino = 0.0
-        
+    f_ret = fund_nav.pct_change().dropna()
+    b_ret = bench_nav.pct_change().dropna()
+    
+    date_6m = current_date - pd.DateOffset(months=6)
+    date_1y = current_date - pd.DateOffset(years=1)
+    date_3y = current_date - pd.DateOffset(years=3)
+    
+    f_ret_6m = f_ret.loc[date_6m:]
+    b_ret_6m = b_ret.loc[date_6m:]
+    f_ret_1y = f_ret.loc[date_1y:]
+    b_ret_1y = b_ret.loc[date_1y:]
+    f_ret_3y = f_ret.loc[date_3y:]
+    b_ret_3y = b_ret.loc[date_3y:]
+    
+    ir_6m = calc_ir(f_ret_6m, b_ret_6m) if not f_ret_6m.empty else 0
+    ir_3y = calc_ir(f_ret_3y, b_ret_3y) if not f_ret_3y.empty else 0
+    vol_6m = calc_vol(f_ret_6m) if not f_ret_6m.empty else 0
+    vol_3y = calc_vol(f_ret_3y) if not f_ret_3y.empty else 0
+    dc_6m = calc_down_cap(f_ret_6m, b_ret_6m) if not f_ret_6m.empty else 1.0
+    dc_3y = calc_down_cap(f_ret_3y, b_ret_3y) if not f_ret_3y.empty else 1.0
+    
+    appraisal, r2 = calc_appraisal_and_r2(f_ret_1y, b_ret_1y)
+    
     return {
         'win_rate': win_rate,
-        'swing_elasticity': swing_elasticity,
-        'down_capture': down_capture,
-        'ir_3m': ir_3m,
+        'min_xirr': min_xirr,
+        'max_dd': mdd,
+        'sortino': sortino,
+        'asym': asym,
+        'avg_xirr': avg_xirr,
         'ir_6m': ir_6m,
-        'sortino': sortino
+        'ir_3y': ir_3y,
+        'vol_6m': vol_6m,
+        'vol_3y': vol_3y,
+        'dc_6m': dc_6m,
+        'dc_3y': dc_3y,
+        'appraisal': appraisal,
+        'r2': r2
     }
 
 def main(date=None):
     print("=" * 80)
-    print("MID CAP GEMINI ALGO - Dynamic Self-Tuning")
+    print("MID CAP GEMINI ALGO - Institutional Decision Tree (5y Daily)")
     print("=" * 80)
     
     provider = MfDataProvider(date=date)
@@ -184,7 +216,7 @@ def main(date=None):
     funds_data = {}
     for _, row in mid_caps.iterrows():
         mfId = row['mfId']
-        chart = provider.get_mf_chart(mfId)
+        chart = provider.get_mf_chart(mfId, duration='5y')
         if not chart.empty:
             chart['timestamp'] = pd.to_datetime(chart['timestamp']).dt.normalize()
             nav = chart.set_index('timestamp')['nav'].sort_index()
@@ -196,91 +228,19 @@ def main(date=None):
             }
             
     print(f"Loaded {len(funds_data)} mid cap funds.")
-    
     current_date = bench_nav.index[-1]
     
-    # Dynamic Tuning Engine
-    # We will evaluate at t-1Y and t-2Y to predict t-0 and t-1Y respectively
-    eval_points = [current_date - timedelta(days=365), current_date - timedelta(days=2*365)]
-    
-    historical_metrics = {pt: {} for pt in eval_points}
-    forward_returns = {pt: {} for pt in eval_points}
-    
-    print("Running dynamic tuning engine...")
-    for pt in eval_points:
-        for mfId, data in funds_data.items():
-            metrics = calculate_fund_metrics(data['nav'], bench_nav, pt)
-            if metrics is not None:
-                historical_metrics[pt][mfId] = metrics
-                
-                # Calculate forward 1Y SIP return
-                fwd_xirr = calc_sip_xirr(data['nav'], pt, pt + timedelta(days=365))
-                if fwd_xirr is not None:
-                    forward_returns[pt][mfId] = fwd_xirr
-                    
-    # Calculate ICs
-    features = ['win_rate', 'swing_elasticity', 'down_capture', 'ir_3m', 'ir_6m', 'sortino']
-    feature_ics = {f: [] for f in features}
-    
-    for pt in eval_points:
-        h_mets = historical_metrics[pt]
-        f_rets = forward_returns[pt]
-        
-        common_funds = list(set(h_mets.keys()).intersection(set(f_rets.keys())))
-        if len(common_funds) < 10:
-            continue
-            
-        y = [f_rets[f] for f in common_funds]
-        for feat in features:
-            x = [h_mets[f][feat] for f in common_funds]
-            if np.std(x) > 1e-6 and np.std(y) > 1e-6:
-                ic, _ = spearmanr(x, y)
-                if not np.isnan(ic):
-                    feature_ics[feat].append(ic)
-                    
-    # Average ICs and compute weights
-    weights = {}
-    print("\nDynamic Weights (based on historical IC):")
-    for feat in features:
-        avg_ic = np.mean(feature_ics[feat]) if len(feature_ics[feat]) > 0 else 0
-        # down_capture should be negatively correlated, so invert it
-        if feat == 'down_capture':
-            avg_ic = -avg_ic
-        
-        # We only assign weight if IC > 0 (meaning it was predictive)
-        weight = max(0.01, avg_ic) # floor at 0.01 to keep all factors slightly active
-        weights[feat] = weight
-        print(f"  {feat}: IC = {avg_ic:.3f} -> Weight = {weight:.3f}")
-        
-    total_weight = sum(weights.values())
-    for feat in weights:
-        weights[feat] /= total_weight
-        
-    # Now calculate current metrics
-    print("\nCalculating current metrics and scores...")
     results = []
-    
     for mfId, data in funds_data.items():
         metrics = calculate_fund_metrics(data['nav'], bench_nav, current_date)
         if metrics is None:
             continue
             
-        # AUM Penalty (Size trap penalty)
-        aum = data['aum'] if pd.notna(data['aum']) else 0
-        aum_penalty = 1.0
-        if aum > 40000:
-            aum_penalty = 0.85
-        elif aum > 25000:
-            aum_penalty = 0.90
-        elif aum > 15000:
-            aum_penalty = 0.95
-            
-        # History confidence penalty
         days = (data['nav'].index[-1] - data['nav'].index[0]).days
-        conf = 1.0
-        if days < 3 * 365:
-            conf = 0.8 # Penalize short history
-            
+        aum = data['aum'] if pd.notna(data['aum']) else 0
+        
+        # Calculate Base Score from basic metrics
+        # (This acts as the pre-decision-tree baseline, representing foundational fund health)
         res = {
             'mfId': mfId,
             'name': data['name'],
@@ -289,10 +249,8 @@ def main(date=None):
         }
         res.update(metrics)
         
-        # Calculate CAGRs
         start_nav = data['nav'].iloc[0]
         end_nav = data['nav'].iloc[-1]
-        
         for y in [3, 5]:
             ago = current_date - timedelta(days=y*365)
             past_nav = data['nav'].loc[:ago]
@@ -307,54 +265,85 @@ def main(date=None):
         
     df_res = pd.DataFrame(results)
     
-    # Rank Normalize features
-    for feat in features:
-        if feat == 'down_capture':
-            df_res[f'{feat}_score'] = df_res[feat].rank(ascending=False, pct=True) * 100
-        else:
-            df_res[f'{feat}_score'] = df_res[feat].rank(ascending=True, pct=True) * 100
+    # ---------------------------------------------------------
+    # Decision Tree Scoring System
+    # ---------------------------------------------------------
+    
+    # Baseline Score (0-100) based on Max DD, Sortino, Win Rate, Min XIRR
+    df_res['max_dd_score'] = df_res['max_dd'].rank(ascending=False, pct=True) * 100
+    df_res['sortino_score'] = df_res['sortino'].rank(ascending=True, pct=True) * 100
+    df_res['win_rate_score'] = df_res['win_rate'].rank(ascending=True, pct=True) * 100
+    df_res['min_xirr_score'] = df_res['min_xirr'].rank(ascending=True, pct=True) * 100
+    
+    df_res['base_score'] = (
+        df_res['max_dd_score'] * 0.30 +
+        df_res['sortino_score'] * 0.30 +
+        df_res['win_rate_score'] * 0.20 +
+        df_res['min_xirr_score'] * 0.20
+    )
+    
+    final_scores = []
+    for idx, row in df_res.iterrows():
+        score = row['base_score']
+        
+        # --- STAGE 1: Hard Filters & Fundamental Penalties ---
+        # Closet Indexer Penalty
+        if row['r2'] > 0.95:
+            score *= 0.50
+        
+        # AUM Bloat Penalty
+        if row['aum'] > 10000:
+            score *= 0.50
             
-    # Compute composite score
-    df_res['raw_score'] = 0.0
-    for feat in features:
-        df_res['raw_score'] += df_res[f'{feat}_score'] * weights[feat]
+        # Debt-Hugger Penalty
+        if row['avg_xirr'] < 0.12:
+            score *= 0.50
+            
+        # Short History Penalty
+        if row['data_days'] < 3 * 365:
+            score *= 0.50
+        elif row['data_days'] < 4 * 365:
+            score *= 0.80
+            
+        # --- STAGE 2: Manager Edge Decay Penalties ---
+        if row['ir_6m'] < row['ir_3y'] * 0.8:
+            score *= 0.80
+        if row['vol_6m'] > row['vol_3y'] * 1.2:
+            score *= 0.80
+        if row['dc_6m'] > row['dc_3y'] * 1.2:
+            score *= 0.80
+            
+        # --- STAGE 3: Alpha & Asymmetry Boosts ---
+        # We boost if they are in the top quartile (75th percentile).
+        # We'll calculate quartiles globally first.
+        final_scores.append(score)
         
-    # Apply penalties
-    # AUM Penalty logic inline
-    aum_penalties = []
-    for aum in df_res['aum']:
-        p = 1.0
-        if aum > 40000: p = 0.85
-        elif aum > 25000: p = 0.90
-        elif aum > 15000: p = 0.95
-        aum_penalties.append(p)
-        
-    df_res['aum_penalty'] = aum_penalties
+    df_res['score'] = final_scores
     
-    conf_penalties = []
-    for d in df_res['data_days']:
-        p = 1.0
-        if d < 3 * 365: p = 0.8
-        conf_penalties.append(p)
-        
-    df_res['conf_penalty'] = conf_penalties
+    # Calculate quartiles for Stage 3
+    appraisal_p75 = df_res['appraisal'].quantile(0.75)
+    asym_p75 = df_res['asym'].quantile(0.75)
     
-    df_res['score'] = df_res['raw_score'] * df_res['aum_penalty'] * df_res['conf_penalty']
+    # Apply boosts
+    df_res['score'] = np.where(df_res['appraisal'] >= appraisal_p75, df_res['score'] * 1.25, df_res['score'])
+    df_res['score'] = np.where(df_res['asym'] >= asym_p75, df_res['score'] * 1.25, df_res['score'])
+    
     df_res['rank'] = df_res['score'].rank(ascending=False).astype(int)
-    
     df_res = df_res.sort_values('rank')
     
-    cols = ['mfId', 'name', 'rank', 'score', 'data_days', 'cagr_3y', 'cagr_5y', 'win_rate', 'swing_elasticity']
+    cols = ['mfId', 'name', 'rank', 'score', 'data_days', 'aum', 'cagr_3y', 'win_rate', 'max_dd', 'sortino', 'asym', 'appraisal', 'r2']
     final_df = df_res[cols].copy()
     
-    # Format
+    # Format for readability
     final_df['score'] = final_df['score'].round(2)
     final_df['cagr_3y'] = final_df['cagr_3y'].round(2).astype(str) + '%'
-    final_df['cagr_5y'] = final_df['cagr_5y'].round(2).astype(str) + '%'
     final_df['win_rate'] = (final_df['win_rate'] * 100).round(2).astype(str) + '%'
-    final_df['swing_elasticity'] = final_df['swing_elasticity'].round(3)
+    final_df['max_dd'] = (final_df['max_dd'] * 100).round(2).astype(str) + '%'
+    final_df['sortino'] = final_df['sortino'].round(3)
+    final_df['asym'] = final_df['asym'].round(3)
+    final_df['appraisal'] = final_df['appraisal'].round(3)
+    final_df['r2'] = final_df['r2'].round(3)
     
-    # Output
     out_dir = os.path.join(os.path.dirname(__file__), '../../results')
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, f'{SECTOR}_{MODEL}.csv')
