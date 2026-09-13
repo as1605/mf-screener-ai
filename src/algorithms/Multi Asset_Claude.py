@@ -56,6 +56,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
+from scipy.stats import norm
 
 # ---------------------------------------------------------------------------
 # Path setup
@@ -741,14 +742,23 @@ def compute_composite(features_df: pd.DataFrame) -> pd.DataFrame:
         sub_signs={"sip_1y_p50": +1, "sip_consistency": +1, "sip_1y_p20": +1},
     )
 
-    # Convert each pillar to 0-100 percentile rank.  Funds missing the entire
-    # pillar (NaN) get the neutral median 50 - they aren't penalised for not
-    # having the data, they're penalised via the track-record haircut.
-    out["p1_alloc_profile"] = (p1.rank(pct=True, na_option="keep") * 100.0).fillna(50.0)
-    out["p2_alloc_adaptability"]   = (p2.rank(pct=True, na_option="keep") * 100.0).fillna(50.0)
-    out["p3_alloc_skill"]   = (p3.rank(pct=True, na_option="keep") * 100.0).fillna(50.0)
-    out["p4_downside"]      = (p4.rank(pct=True, na_option="keep") * 100.0).fillna(50.0)
-    out["p5_sip_history"]   = (p5.rank(pct=True, na_option="keep") * 100.0).fillna(50.0)
+    # Convert each pillar to 0-100 via normal CDF (smooth gradient).
+    # Funds missing the entire pillar (NaN) get the neutral median 50 - they
+    # aren't penalised for not having the data, they're penalised via the
+    # track-record haircut.
+    def _cdf_score(s: pd.Series) -> pd.Series:
+        mu = s.mean()
+        sd = s.std()
+        if sd is None or sd == 0 or not np.isfinite(sd):
+            return pd.Series(np.where(s.notna(), 50.0, np.nan), index=s.index)
+        z = (s - mu) / sd
+        return pd.Series(np.where(s.notna(), norm.cdf(z) * 100.0, np.nan), index=s.index)
+
+    out["p1_alloc_profile"]       = _cdf_score(p1).fillna(50.0)
+    out["p2_alloc_adaptability"]   = _cdf_score(p2).fillna(50.0)
+    out["p3_alloc_skill"]          = _cdf_score(p3).fillna(50.0)
+    out["p4_downside"]             = _cdf_score(p4).fillna(50.0)
+    out["p5_sip_history"]          = _cdf_score(p5).fillna(50.0)
 
     out["composite_raw"] = (
         PILLAR_WEIGHTS["p1_alloc_profile"] * out["p1_alloc_profile"] +
@@ -915,9 +925,12 @@ def main(date: Optional[str] = None) -> None:
     df = pd.DataFrame(rows)
     df = compute_composite(df)
 
-    # Track-record haircut: <2y -> 0.85
-    haircut = pd.Series(1.0, index=df.index)
-    haircut[df["data_days"] < (MIN_WEEKS_FULL_TRACK * 7)] = TRACK_RECORD_HAIRCUT
+    # Smooth track-record haircut: sigmoid transition from 0.85 to 1.0
+    # centered at MIN_WEEKS_FULL_TRACK (2 years) with gradual ramp.
+    full_track_days = MIN_WEEKS_FULL_TRACK * 7
+    haircut = df["data_days"].apply(
+        lambda d: 0.85 + 0.15 / (1.0 + np.exp(-(d - full_track_days) / 60.0))
+    )
     df["score"] = (df["composite_raw"] * haircut).round(2)
 
     # Funds with < 26w of data: explicitly score 0 and zero-out pillars in CSV

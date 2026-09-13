@@ -48,6 +48,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+from scipy.stats import norm
 
 # ---------------------------------------------------------------------------
 # Path setup
@@ -89,7 +90,7 @@ MIN_MONTHS_FOR_SIP = SIP_MONTHS + HOLD_MONTHS + 1
 MIN_MONTHS_FOR_BACKTEST = SIP_MONTHS + HOLD_MONTHS + 1
 MIN_DATA_DAYS_FULL_CONFIDENCE = int(3 * DAYS_PER_YEAR)
 TRACK_RECORD_HAIRCUT = 0.85
-NOISE_FLOOR_RHO = 0.05                 # drop features with |rho| < this
+RHO_SCALE_TAU = 0.10                   # tanh scaling for sign strength
 
 OUTPUT_DIR = ROOT_DIR / "results"
 OUTPUT_FILE = OUTPUT_DIR / f"{SECTOR}_Claude.csv"
@@ -641,6 +642,7 @@ def compute_feature_weights(
     statuses: Dict[str, str] = {}
     raw_weights: Dict[str, float] = {}
     signs: Dict[str, int] = {}
+    sign_strengths: Dict[str, float] = {}  # continuous sign factor for data-driven
 
     for col in FEATURE_COLS:
         rho = _cross_sectional_rank_corr(panel, col)
@@ -651,27 +653,26 @@ def compute_feature_weights(
         prior = FEATURE_PRIORS.get(col, 0)
 
         if prior != 0:
-            # Locked-direction feature.
-            if (rho * prior) >= 0 or abs(rho) < NOISE_FLOOR_RHO:
-                # Data agrees (or is too noisy to disagree) -> keep, sign = prior.
-                # Weight is |rho| but with a tiny floor so a strong-prior feature
-                # with rho ~= 0 still contributes a sliver (otherwise the prior
-                # is wasted whenever the panel produces near-zero correlations).
-                w = max(abs(rho), NOISE_FLOOR_RHO)
-                raw_weights[col] = w
-                signs[col] = prior
-                statuses[col] = "locked"
-            else:
-                # Data meaningfully contradicts the prior -> drop the feature.
-                statuses[col] = "drop_disagree"
+            # Prior-locked feature: smooth agreement scaling.
+            # agreement ranges from -1 (full disagree) to +1 (full agree)
+            agreement = rho * prior  # positive when data agrees with prior
+            # Soft gate: smoothly scale weight from ~0 (disagree) to full (agree)
+            # Using sigmoid centered at 0: features at rho*prior = -0.1 get ~27%
+            # weight; at rho*prior = +0.1 get ~73% weight.
+            agreement_factor = 1.0 / (1.0 + np.exp(-agreement / 0.05))
+            w = abs(rho) * agreement_factor + 0.01  # small floor so prior contributes
+            raw_weights[col] = w
+            signs[col] = prior
+            statuses[col] = f"prior(af={agreement_factor:.2f})"
         else:
-            # Data-driven feature.
-            if abs(rho) >= NOISE_FLOOR_RHO:
-                raw_weights[col] = abs(rho)
-                signs[col] = 1 if rho >= 0 else -1
-                statuses[col] = "data"
-            else:
-                statuses[col] = "drop_noise"
+            # Data-driven feature: continuous tanh scaling.
+            # tanh(rho / tau) smoothly maps rho to [-1, +1] sign+magnitude.
+            sign_strength = float(np.tanh(rho / RHO_SCALE_TAU))
+            w = abs(sign_strength) * abs(rho) + 0.005  # tiny floor
+            raw_weights[col] = w
+            signs[col] = 1 if rho >= 0 else -1
+            sign_strengths[col] = abs(sign_strength)
+            statuses[col] = f"data(str={abs(sign_strength):.2f})"
 
 
     total = sum(raw_weights.values())
@@ -899,15 +900,26 @@ def main(date: Optional[str] = None) -> None:
     features_now = pd.DataFrame(now_rows).set_index("mfId")
     raw_score = composite_score(features_now, weights, signs)
 
-    # ---- Convert raw -> 0-100 percentile -> apply track-record haircut ----
-    pctl = raw_score.rank(pct=True, na_option="keep") * 100.0
-    score = pctl.fillna(0.0)
+    # ---- Convert raw -> 0-100 via normal CDF (smooth gradient) ----
+    # Normal CDF maps continuous z-scores to [0, 100] without the discrete
+    # jumps that rank(pct=True) creates in small universes (N~28).
+    rs_mean = raw_score.mean()
+    rs_std = raw_score.std()
+    if rs_std > 0 and np.isfinite(rs_std):
+        score = pd.Series(
+            norm.cdf((raw_score - rs_mean) / rs_std) * 100.0,
+            index=raw_score.index,
+        )
+    else:
+        score = pd.Series(50.0, index=raw_score.index)
+    score = score.fillna(0.0)
 
+    # Smooth track-record haircut: sigmoid transition from 0.85 to 1.0
+    # centered at MIN_DATA_DAYS_FULL_CONFIDENCE with ~6-month transition.
     haircut = pd.Series(1.0, index=score.index)
     for mf_id in score.index:
         days = fund_meta[mf_id]["data_days"]
-        if days < MIN_DATA_DAYS_FULL_CONFIDENCE:
-            haircut[mf_id] = TRACK_RECORD_HAIRCUT
+        haircut[mf_id] = 0.85 + 0.15 / (1.0 + np.exp(-(days - MIN_DATA_DAYS_FULL_CONFIDENCE) / 60.0))
     score = (score * haircut).round(2)
 
     # ---- Assemble output ----

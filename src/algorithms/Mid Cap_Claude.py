@@ -70,6 +70,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy.optimize import brentq
+from scipy.stats import norm
 
 # ---------------------------------------------------------------------------
 # Path setup
@@ -917,24 +918,28 @@ def analyse_fund(
 # ===================================================================
 
 def percentile_rank(s: pd.Series, higher_is_better: bool = True) -> pd.Series:
-    """Cross-sectional percentile rank (0..100), preserves NaN."""
-    ranked = s.rank(pct=True, na_option="keep")
+    """Cross-sectional CDF-based score (0..100), preserves NaN.
+    Uses normal CDF instead of discrete rank to produce smooth gradients
+    rather than staircase jumps in small universes."""
+    x = s.astype(float)
+    mu = x.mean()
+    sd = x.std()
+    if sd is None or sd == 0 or not np.isfinite(sd):
+        return pd.Series(np.where(s.notna(), 50.0, np.nan), index=s.index)
+    z = (x - mu) / sd
     if not higher_is_better:
-        ranked = 1.0 - ranked
-    return ranked * 100.0
+        z = -z
+    return pd.Series(np.where(s.notna(), norm.cdf(z) * 100.0, np.nan), index=s.index)
 
 
 def confidence_factor(data_days: int) -> float:
-    """Graduated haircut by available history."""
-    if data_days < 365:
-        return 0.55
-    if data_days < 2 * 365:
-        return 0.75
-    if data_days < 3 * 365:
-        return 0.88
-    if data_days < 5 * 365:
-        return 0.95
-    return 1.00
+    """Smooth confidence haircut by available history.
+    Uses a logistic sigmoid that transitions smoothly from 0.55 to 1.0,
+    centered at ~2.5 years with a gradual ramp, instead of discrete steps."""
+    # Map data_days to a 0-1 scale: 0 at 0 days, 1 at 5*365 days
+    x = float(data_days) / (5.0 * 365.0)
+    # Logistic sigmoid centered at x=0.5 (2.5 years), scaled to [0.55, 1.0]
+    return float(0.55 + 0.45 / (1.0 + np.exp(-12.0 * (x - 0.5))))
 
 
 def compute_pillar_scores(

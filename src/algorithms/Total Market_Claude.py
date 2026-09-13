@@ -128,6 +128,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy.optimize import brentq
+from scipy.stats import norm
 
 # ---------------------------------------------------------------------------
 # Path & logging setup
@@ -1093,36 +1094,44 @@ def fund_hit_rate_vs_benchmark(
 # ===================================================================
 
 def percentile_rank(s: pd.Series, higher_better: bool = True) -> pd.Series:
-    if higher_better:
-        ranks = s.rank(method="average", pct=True, na_option="keep")
-    else:
-        ranks = (-s).rank(method="average", pct=True, na_option="keep")
-    return ranks * 100.0
+    """CDF-based score (0..100). Uses normal CDF instead of discrete rank
+    to produce smooth gradients rather than staircase jumps."""
+    x = s.astype(float)
+    mu = x.mean()
+    sd = x.std()
+    if sd is None or sd == 0 or not np.isfinite(sd):
+        return pd.Series(np.where(s.notna(), 50.0, np.nan), index=s.index)
+    z = (x - mu) / sd
+    if not higher_better:
+        z = -z
+    return pd.Series(np.where(s.notna(), norm.cdf(z) * 100.0, np.nan), index=s.index)
 
 
 def subsector_aware_rank(df, col, subsector_col='subsector', higher_better=True):
-    """Z-score within subsector, then rank across full universe.
+    """Z-score within subsector, then CDF across full universe.
     Prevents Value funds from being systematically penalized for
-    their inherently different drawdown/beta profiles."""
+    their inherently different drawdown/beta profiles.
+    Uses normal CDF instead of discrete rank for smooth gradients."""
     z_within = df.groupby(subsector_col)[col].transform(
         lambda x: (x - x.mean()) / x.std() if x.std() > 1e-9 else 0
     )
-    if higher_better:
-        return z_within.rank(method='average', pct=True, na_option='keep') * 100.0
-    else:
-        return (-z_within).rank(method='average', pct=True, na_option='keep') * 100.0
+    if not higher_better:
+        z_within = -z_within
+    mu = z_within.mean()
+    sd = z_within.std()
+    if sd is None or sd == 0 or not np.isfinite(sd):
+        return pd.Series(np.where(z_within.notna(), 50.0, np.nan), index=df.index)
+    z2 = (z_within - mu) / sd
+    return pd.Series(np.where(z_within.notna(), norm.cdf(z2) * 100.0, np.nan), index=df.index)
 
 
 def confidence_haircut(data_weeks: int) -> float:
-    if data_weeks < LB_1Y:
-        return 0.55
-    if data_weeks < LB_2Y:
-        return 0.75
-    if data_weeks < LB_3Y:
-        return 0.88
-    if data_weeks < LB_5Y:
-        return 0.97
-    return 1.00
+    """Smooth confidence haircut by available history.
+    Logistic sigmoid transitioning from 0.55 to 1.0, centered at ~2.5 years."""
+    # Map data_weeks to a 0-1 scale: 0 at 0 weeks, 1 at LB_5Y weeks
+    x = float(data_weeks) / float(LB_5Y)
+    # Logistic sigmoid centered at x=0.5 (2.5 years), scaled to [0.55, 1.0]
+    return float(0.55 + 0.45 / (1.0 + np.exp(-12.0 * (x - 0.5))))
 
 
 def assemble_p1_score(df: pd.DataFrame) -> pd.Series:
