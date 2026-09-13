@@ -7,6 +7,7 @@ import os
 import re
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import gspread
 
@@ -252,7 +253,34 @@ def publish_rank_csv(title: str, csv_path: Path) -> None:
         ws = sh.add_worksheet(title=title, rows=1000, cols=30)
 
     df = pd.read_csv(csv_path)
-    data = [df.columns.tolist()] + df.astype(str).fillna("").values.tolist()
+    if title.startswith("Ranks - "):
+        rank_cols = [c for c in df.columns if c not in ("mfId", "name")]
+        rev_rank_cols = sorted(rank_cols, reverse=True)
+        latest_col = rev_rank_cols[0]
+        df = df[["mfId", "name"] + rev_rank_cols]
+        df = df.sort_values(by=latest_col, na_position="last")
+        for c in rev_rank_cols:
+            df[c] = pd.to_numeric(df[c], errors="coerce").astype("Int64")
+        rows = []
+        for row in df.values:
+            cleaned_row = []
+            for val in row:
+                if pd.isna(val):
+                    cleaned_row.append("")
+                elif isinstance(val, (int, np.integer)):
+                    cleaned_row.append(int(val))
+                elif isinstance(val, (float, np.floating)) and val.is_integer():
+                    cleaned_row.append(int(val))
+                else:
+                    cleaned_row.append(val)
+            rows.append(cleaned_row)
+        data = [df.columns.tolist()] + rows
+    else:
+        rows = []
+        for row in df.values:
+            cleaned_row = ["" if pd.isna(val) else val for val in row]
+            rows.append(cleaned_row)
+        data = [df.columns.tolist()] + rows
     ws.update(data, value_input_option="USER_ENTERED")
     nrows, ncols = len(data), len(df.columns)
     if nrows and ncols:

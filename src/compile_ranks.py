@@ -15,7 +15,7 @@ def get_dates():
     for branch in branches:
         if BRANCH_DATE_PREFIX in branch:
             dates.append(branch.replace("origin/"+BRANCH_DATE_PREFIX, "").strip())
-    return dates
+    return sorted(list(set(dates)))
 
 def get_categories():
     categories = []
@@ -32,21 +32,34 @@ def process_category(category: str, dates: list[str]):
         cmd = f"git show '{branch}':'{file_path}'"
         print(cmd)
         content = os.popen(cmd).read()
-        df_d = pd.read_csv(StringIO(content))
-        df_d.set_index("mfId")
-        df_d = df_d[["mfId", "name", "total_rank"]]
-        df_d = df_d.set_index("mfId")
+        if not content.strip():
+            continue
+        try:
+            df_d = pd.read_csv(StringIO(content))
+        except Exception:
+            continue
+        if "mfId" not in df_d.columns or "total_rank" not in df_d.columns:
+            continue
+        df_d = df_d[["mfId", "name", "total_rank"]].set_index("mfId")
 
+        rank_series = df_d["total_rank"].rename(date)
         if df is None:
             df = df_d[["name"]].copy()
+            df[date] = rank_series
+        else:
+            df = df.join(rank_series, how="outer")
+            df["name"] = df_d["name"].combine_first(df["name"])
 
-        df = df.join(
-            df_d[["total_rank"]].rename(
-                columns={"total_rank": date}
-            ),
-            how="left"
-        )
-    df.to_csv(f"results/ranks/{category}.csv")
+    if df is not None:
+        date_cols = [c for c in df.columns if c != "name"]
+        rev_date_cols = sorted(date_cols, reverse=True)
+        latest_date = rev_date_cols[0]
+        df = df[["name"] + rev_date_cols]
+        df = df.sort_values(by=latest_date, na_position="last")
+        for c in rev_date_cols:
+            df[c] = pd.to_numeric(df[c], errors="coerce").astype("Int64")
+        os.makedirs("results/ranks", exist_ok=True)
+        df.to_csv(f"results/ranks/{category}.csv")
 
 def main():
     dates = get_dates()
