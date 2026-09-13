@@ -292,29 +292,38 @@ def compute_composite_score(df: pd.DataFrame) -> pd.DataFrame:
     df["penalty_mult"] = 1.0
     df["drop_flag"] = False
     
-    # Stage 1: Hard Filters
-    # Closet Indexer Penalty
-    df.loc[df["r2_1y"] > 0.95, "penalty_mult"] *= 0.5
+    # Stage 1: Smooth Gradients replacing Hard Cliffs
+    # Closet Indexer Penalty: decay from 1.0 at r2=0.90 to 0.5 at r2=1.00
+    r2_penalty = ((df["r2_1y"] - 0.90) / (1.00 - 0.90)).clip(lower=0.0, upper=1.0)
+    df["penalty_mult"] *= (1.0 - 0.5 * r2_penalty)
     
-    # Debt-Hugger Penalty
-    # If Mean XIRR < 8% (risk free 6.5% + marginal equity premium)
-    df.loc[df["mean_xirr"] < 0.08, "penalty_mult"] *= 0.5
+    # Debt-Hugger Penalty: decay from 1.0 at xirr=0.12 down to 0.5 at xirr=0.06
+    debt_penalty = ((0.12 - df["mean_xirr"]) / (0.12 - 0.06)).clip(lower=0.0, upper=1.0)
+    df["penalty_mult"] *= (1.0 - 0.5 * debt_penalty)
     
     # Bull Market Illusion / Confidence Penalty (< 4 years data)
-    df.loc[df["data_days"] < 1000, "penalty_mult"] *= 0.7  # < ~4 years daily data
+    # Linearly scale penalty from 0.7 at 500 days to 1.0 at 1000 days
+    data_days_mult = ((df["data_days"] - 500) / (1000 - 500)).clip(lower=0.0, upper=1.0)
+    df["penalty_mult"] *= (0.7 + 0.3 * data_days_mult)
     
-    # Stage 2: Edge Decay Multipliers
-    # IR Decay
-    decay_ir_mask = (df["ir_6m"] < df["ir_3y"] * 0.8) & (df["ir_3y"] > 0)
-    df.loc[decay_ir_mask, "penalty_mult"] *= 0.8
+    # Stage 2: Edge Decay Multipliers (Continuous)
+    # IR Decay: If ir_6m / ir_3y < 1.0, decay smoothly down to max 0.8 multiplier
+    ir_ratio = np.where(df["ir_3y"] > 0, df["ir_6m"] / df["ir_3y"], 1.0)
+    ir_ratio = pd.Series(ir_ratio, index=df.index).fillna(1.0)
+    ir_decay = ((1.0 - ir_ratio) / (1.0 - 0.5)).clip(lower=0.0, upper=1.0)
+    df["penalty_mult"] *= (1.0 - 0.2 * ir_decay)
     
-    # Volatility Expansion
-    decay_vol_mask = (df["vol_6m"] > df["vol_3y"] * 1.2) & (df["vol_3y"] > 0)
-    df.loc[decay_vol_mask, "penalty_mult"] *= 0.8
+    # Volatility Expansion: If vol_6m / vol_3y > 1.0, decay smoothly down to max 0.8 multiplier
+    vol_ratio = np.where(df["vol_3y"] > 0, df["vol_6m"] / df["vol_3y"], 1.0)
+    vol_ratio = pd.Series(vol_ratio, index=df.index).fillna(1.0)
+    vol_expansion = ((vol_ratio - 1.0) / (1.5 - 1.0)).clip(lower=0.0, upper=1.0)
+    df["penalty_mult"] *= (1.0 - 0.2 * vol_expansion)
     
-    # Downside Capture Decay
-    decay_dcap_mask = (df["d_cap_6m"] > df["d_cap_3y"] * 1.2) & (df["d_cap_3y"] > 0)
-    df.loc[decay_dcap_mask, "penalty_mult"] *= 0.8
+    # Downside Capture Decay: If d_cap_6m / d_cap_3y > 1.0, decay smoothly
+    dcap_ratio = np.where(df["d_cap_3y"] > 0, df["d_cap_6m"] / df["d_cap_3y"], 1.0)
+    dcap_ratio = pd.Series(dcap_ratio, index=df.index).fillna(1.0)
+    dcap_expansion = ((dcap_ratio - 1.0) / (1.5 - 1.0)).clip(lower=0.0, upper=1.0)
+    df["penalty_mult"] *= (1.0 - 0.2 * dcap_expansion)
     
     # Base Rank Scoring (using non-linear percentiles)
     # 1. Terminal Exposure Risk (p20_xirr) -> 40% weight

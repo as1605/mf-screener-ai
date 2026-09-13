@@ -340,60 +340,59 @@ def compute_decision_tree_score(df: pd.DataFrame) -> pd.DataFrame:
     df["score"] = np.where(applied_weight > 0, df["raw_core"] / applied_weight, 0)
     
     # -------------------------------------------------------------------
-    # Stage 1: Hard Filters (Massive Penalties)
+    # Stage 1: Continuous Penalty Gradients
     # -------------------------------------------------------------------
-    # a. Closet Indexer Penalty (R-Squared > 0.95)
+    # a. Closet Indexer Penalty (R-Squared)
     r2 = df["r_squared_1y"].fillna(0)
-    filter_r2 = np.where(r2 > 0.95, 0.4, 1.0) # 60% penalty
+    filter_r2 = 1.0 - 0.6 * ((r2 - 0.90) / (1.00 - 0.90)).clip(lower=0.0, upper=1.0)
     
-    # b. AUM Bloat Penalty (> 30,000 Cr)
+    # b. AUM Bloat Penalty
     aum = df["aum"].fillna(0)
-    filter_aum = np.where(aum > 30000, 0.7, 1.0)
-    filter_aum = np.where(aum > 50000, 0.5, filter_aum)
+    filter_aum = 1.0 - 0.5 * ((aum - 20000) / (50000 - 20000)).clip(lower=0.0, upper=1.0)
     
-    # c. Debt-Hugger Penalty (mean_24m < 13%)
+    # c. Debt-Hugger Penalty (mean_24m)
     mean_ret = df["mean_24m"].fillna(0)
-    filter_debt = np.where(mean_ret < 0.13, 0.5, 1.0)
+    filter_debt = 1.0 - 0.5 * ((0.13 - mean_ret) / (0.13 - 0.08)).clip(lower=0.0, upper=1.0)
     
     # d. Bull Market Illusion (< 4 years data)
-    filter_seasoning = np.where(df["data_days"] < MIN_DAYS_4Y, 0.6, 1.0)
+    filter_seasoning = 0.6 + 0.4 * ((df["data_days"] - 500) / (MIN_DAYS_4Y - 500)).clip(lower=0.0, upper=1.0)
     
     stage1_multiplier = filter_r2 * filter_aum * filter_debt * filter_seasoning
     df["score"] = df["score"] * stage1_multiplier
     
     # -------------------------------------------------------------------
-    # Stage 2: Manager Edge Decay Multipliers
+    # Stage 2: Manager Edge Decay Multipliers (Continuous)
     # -------------------------------------------------------------------
     for idx, row in df.iterrows():
         decay_mult = 1.0
         # IR Decay
         ir_3y, ir_6m = row.get("ir_3y"), row.get("ir_6m")
         if pd.notna(ir_3y) and pd.notna(ir_6m) and ir_3y > 0:
-            if ir_6m < (ir_3y * 0.8): decay_mult *= 0.8
+            ir_decay = ((ir_3y - ir_6m) / ir_3y).clip(lower=0.0, upper=0.5)
+            decay_mult *= (1.0 - 0.4 * ir_decay) # max 20% penalty
                 
         # Volatility Expansion
         vol_3y, vol_6m = row.get("vol_3y"), row.get("vol_6m")
         if pd.notna(vol_3y) and pd.notna(vol_6m) and vol_3y > 0:
-            if vol_6m > (vol_3y * 1.2): decay_mult *= 0.8
+            vol_exp = ((vol_6m - vol_3y) / vol_3y).clip(lower=0.0, upper=0.5)
+            decay_mult *= (1.0 - 0.4 * vol_exp)
                 
         # Downside Capture Decay
         dc_3y, dc_6m = row.get("downside_cap_3y"), row.get("downside_cap_6m")
         if pd.notna(dc_3y) and pd.notna(dc_6m) and dc_3y > 0:
-            if dc_6m > (dc_3y * 1.2): decay_mult *= 0.8
+            dc_exp = ((dc_6m - dc_3y) / dc_3y).clip(lower=0.0, upper=0.5)
+            decay_mult *= (1.0 - 0.4 * dc_exp)
             
         df.at[idx, "score"] *= decay_mult
 
     # -------------------------------------------------------------------
-    # Stage 3: Alpha & Asymmetry Boosts (Top Quartile)
+    # Stage 3: Alpha & Asymmetry Boosts (Continuous)
     # -------------------------------------------------------------------
-    # We apply a 20% score boost for funds in the top quartile of Appraisal Ratio,
-    # and a 20% boost for top quartile Asymmetry Score.
+    appr_pctl = percentile_rank(df["appraisal_ratio"]).fillna(0)
+    asym_pctl = percentile_rank(df["asymmetry_score"]).fillna(0)
     
-    appr_pctl = percentile_rank(df["appraisal_ratio"])
-    asym_pctl = percentile_rank(df["asymmetry_score"])
-    
-    boost_appr = np.where(appr_pctl >= 75.0, 1.2, 1.0)
-    boost_asym = np.where(asym_pctl >= 75.0, 1.2, 1.0)
+    boost_appr = 1.0 + 0.2 * ((appr_pctl - 50.0) / (100.0 - 50.0)).clip(lower=0.0, upper=1.0)
+    boost_asym = 1.0 + 0.2 * ((asym_pctl - 50.0) / (100.0 - 50.0)).clip(lower=0.0, upper=1.0)
     
     df["score"] = df["score"] * boost_appr * boost_asym
     

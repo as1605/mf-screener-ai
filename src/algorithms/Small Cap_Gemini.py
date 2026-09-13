@@ -186,23 +186,21 @@ def simulate_24m_sip_hold(nav_series: pd.Series) -> Tuple[Optional[float], Optio
 
 def calculate_liquidity_score(aum: float) -> float:
     """
-    Score AUM based on Small Cap liquidity constraints.
-    Optimal: 1000 - 5000 Cr.
-    Penalty: < 500 Cr (too small/survival risk) or > 10000 Cr (severe liquidity drag).
+    Score AUM based on Small Cap liquidity constraints using a continuous piecewise function.
+    Optimal (1.0): 500 - 6000 Cr.
+    Smooth decay below 500 Cr and above 6000 Cr.
     """
     if pd.isna(aum) or aum <= 0:
         return 0.5
     if aum < 500:
-        return 0.4
-    if 500 <= aum <= 6000:
+        # Linearly decay from 1.0 at 500 to 0.4 at 0
+        return 0.4 + 0.6 * (aum / 500)
+    if aum <= 6000:
         return 1.0
-    if 6000 < aum <= 10000:
-        return 0.8
-    if 10000 < aum <= 15000:
-        return 0.5
-    if aum > 15000:
-        return 0.2
-    return 0.5
+    # From 6000 to 15000, decay smoothly from 1.0 to 0.2
+    if aum <= 15000:
+        return 1.0 - 0.8 * ((aum - 6000) / (15000 - 6000))
+    return 0.2
 
 def information_ratio(fund_ret: pd.Series, bench_ret: pd.Series) -> Optional[float]:
     """Information Ratio: Active Return / Tracking Error"""
@@ -318,20 +316,19 @@ def compute_composite_score(df: pd.DataFrame) -> pd.DataFrame:
     # Apply Liquidity Multiplier
     df["score"] = df["score"] * df["liquidity_score"]
     
-    # 1. Bull Market Illusion Penalty
-    # Heavily penalize unseasoned funds without a 4-year track record
-    penalty = pd.Series(1.0, index=df.index)
-    has_4y = df["data_days"] >= 1008
-    has_3y = df["data_days"] >= 756
-    penalty[~has_3y] = 0.30  # 70% penalty if < 3Y (likely just a bull market wonder)
-    penalty[has_3y & ~has_4y] = 0.70  # 30% penalty if < 4Y
+    # 1. Bull Market Illusion Penalty (Continuous Gradient)
+    # Heavily penalize unseasoned funds without a 4-year track record.
+    # Linearly scale penalty from 0.3 at 500 days to 1.0 at 1008 days (~4 years).
+    penalty = ((df["data_days"] - 500) / (1008 - 500)).clip(lower=0.0, upper=1.0)
+    penalty = 0.30 + 0.70 * penalty
     df["score"] = df["score"] * penalty
     
-    # 2. Debt-Hugger Penalty
-    # Prevent selecting defensive funds by ensuring a minimum cumulative equity premium floor.
-    # We expect a minimum 24m median return of 24% (roughly 12% annualized) for Small Caps.
-    debt_hugger_mask = df["sip_hold_median_ret"] < 0.24
-    df.loc[debt_hugger_mask, "score"] = df.loc[debt_hugger_mask, "score"] * 0.20
+    # 2. Debt-Hugger Penalty (Continuous Gradient)
+    # Prevent selecting defensive funds by ensuring a minimum equity premium.
+    # We expect ~24m median return of 24%. Linearly decay score if below 24%, down to 0.2x at 12%.
+    debt_multiplier = ((df["sip_hold_median_ret"] - 0.12) / (0.24 - 0.12)).clip(lower=0.0, upper=1.0)
+    debt_multiplier = 0.20 + 0.80 * debt_multiplier
+    df.loc[df["sip_hold_median_ret"].notna(), "score"] *= debt_multiplier[df["sip_hold_median_ret"].notna()]
     
     df["score"] = df["score"].round(2)
     
