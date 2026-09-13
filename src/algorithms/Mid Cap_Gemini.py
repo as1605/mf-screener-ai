@@ -286,47 +286,51 @@ def main(date=None):
     for idx, row in df_res.iterrows():
         score = row['base_score']
         
-        # --- STAGE 1: Hard Filters & Fundamental Penalties ---
+        # --- STAGE 1: Smooth Gradients replacing Hard Filters ---
         # Closet Indexer Penalty
-        if row['r2'] > 0.95:
-            score *= 0.50
+        r2_penalty = max(0.0, min(1.0, (row['r2'] - 0.90) / (1.00 - 0.90)))
+        score *= (1.0 - 0.5 * r2_penalty)
         
         # AUM Bloat Penalty
-        if row['aum'] > 10000:
-            score *= 0.50
+        aum = row['aum'] if pd.notna(row['aum']) else 0
+        aum_penalty = max(0.0, min(1.0, (aum - 8000) / (20000 - 8000)))
+        score *= (1.0 - 0.5 * aum_penalty)
             
         # Debt-Hugger Penalty
-        if row['avg_xirr'] < 0.12:
-            score *= 0.50
+        xirr = row['avg_xirr'] if pd.notna(row['avg_xirr']) else 0
+        debt_penalty = max(0.0, min(1.0, (0.15 - xirr) / (0.15 - 0.08)))
+        score *= (1.0 - 0.5 * debt_penalty)
             
         # Short History Penalty
-        if row['data_days'] < 3 * 365:
-            score *= 0.50
-        elif row['data_days'] < 4 * 365:
-            score *= 0.80
+        days = row['data_days']
+        history_penalty = max(0.0, min(1.0, (4 * 365 - days) / (4 * 365 - 2 * 365)))
+        score *= (1.0 - 0.5 * history_penalty)
             
-        # --- STAGE 2: Manager Edge Decay Penalties ---
-        if row['ir_6m'] < row['ir_3y'] * 0.8:
-            score *= 0.80
-        if row['vol_6m'] > row['vol_3y'] * 1.2:
-            score *= 0.80
-        if row['dc_6m'] > row['dc_3y'] * 1.2:
-            score *= 0.80
+        # --- STAGE 2: Manager Edge Decay Penalties (Continuous) ---
+        if row['ir_3y'] > 0:
+            ir_decay = max(0.0, min(0.5, (row['ir_3y'] - row['ir_6m']) / row['ir_3y']))
+            score *= (1.0 - 0.4 * ir_decay)
+        if row['vol_3y'] > 0:
+            vol_decay = max(0.0, min(0.5, (row['vol_6m'] - row['vol_3y']) / row['vol_3y']))
+            score *= (1.0 - 0.4 * vol_decay)
+        if row['dc_3y'] > 0:
+            dc_decay = max(0.0, min(0.5, (row['dc_6m'] - row['dc_3y']) / row['dc_3y']))
+            score *= (1.0 - 0.4 * dc_decay)
             
         # --- STAGE 3: Alpha & Asymmetry Boosts ---
-        # We boost if they are in the top quartile (75th percentile).
-        # We'll calculate quartiles globally first.
         final_scores.append(score)
         
     df_res['score'] = final_scores
     
-    # Calculate quartiles for Stage 3
-    appraisal_p75 = df_res['appraisal'].quantile(0.75)
-    asym_p75 = df_res['asym'].quantile(0.75)
+    # Calculate percentiles for Stage 3 continuous boosts
+    appraisal_pctl = df_res['appraisal'].rank(pct=True).fillna(0)
+    asym_pctl = df_res['asym'].rank(pct=True).fillna(0)
     
-    # Apply boosts
-    df_res['score'] = np.where(df_res['appraisal'] >= appraisal_p75, df_res['score'] * 1.25, df_res['score'])
-    df_res['score'] = np.where(df_res['asym'] >= asym_p75, df_res['score'] * 1.25, df_res['score'])
+    # Apply boosts (up to 25% max)
+    boost_appr = 1.0 + 0.25 * ((appraisal_pctl - 0.50) / (1.00 - 0.50)).clip(lower=0.0, upper=1.0)
+    boost_asym = 1.0 + 0.25 * ((asym_pctl - 0.50) / (1.00 - 0.50)).clip(lower=0.0, upper=1.0)
+    
+    df_res['score'] = df_res['score'] * boost_appr * boost_asym
     
     df_res['rank'] = df_res['score'].rank(ascending=False).astype(int)
     df_res = df_res.sort_values('rank')
