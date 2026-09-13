@@ -57,17 +57,26 @@ A critical data upgrade for this retrospective:
 
 You must ground your algorithmic design in actual **finance knowledge, market cycle awareness, and risk management principles**:
 
-### Learn from Past Performance Without Biasing to Data
-- Historical data should be analyzed to understand *how and why* funds behaved across different market conditions—not to cherry-pick parameters that flatter past numbers.
-- Distinguish between **luck (beta/liquidity tailwinds)** and **skill (genuine alpha and risk control)**. Did a fund outperform because of superior portfolio construction, or simply by holding high-beta momentum during an aggressive bull run?
-- Avoid recency bias and survivorship bias. Strong returns during a one-way liquidity expansion do not guarantee resilience when liquidity tightens or markets enter a corrective/sideways regime.
+### Predict FUTURE Performance (Skill vs. Luck & Edge Decay)
+- **Identify Deeper Signals:** The core objective is not just to find funds that gave good returns in the past, but to predict funds that will give strong returns in the FUTURE. 
+- **Skill vs. Chasing Returns:** You must implement deep reasoning and analysis to separate true manager *skill* from a lucky beta-ride. Do not simply chase recent high-return funds.
+- **Manager Edge Decay:** Identify forward-looking signals that indicate when a previously good fund stops being well-managed or loses its edge for the next long-term period.
+
+### Mandatory Online Research & Financial Wisdom
+- **Do Not Jump the Gun:** You must not guess, rely on intuition, or simply copy pre-existing ideas. 
+- **Search and Validate:** You are explicitly required to launch research subagents or search online for reputed institutional sources, academic papers, and proven financial wisdom regarding predicting mutual fund outperformance and manager skill. 
+- **Ground Your Logic:** Your final metrics must be derived directly from this independent research, ensuring they are rooted in established financial reality.
+
+### Intelligent & Non-Linear Signal Weighting
+- **Move Beyond Naive Linear Weights:** You are not restricted to simple linear weighted sums.
+- **Intelligent Combinations:** Use signals intelligently as applicable with correct weightages. Consider multi-stage architectures, decision-tree based weights, hard disqualification filters, or compounding multipliers if that helps capture complex financial realities better than linear math.
 
 ### Ground Decisions on Financial Knowledge (Model's Discretion)
 - **Do not blindly follow rigid templates.** As the quantitative researcher, **you decide** which financial concepts, metrics, and risk factors make economic sense for each sector.
 - You must research and justify your methodology from first principles:
   - How do you measure true risk-adjusted performance across full market cycles?
   - How do you assess downside resilience, drawdown duration, and recovery characteristics?
-  - What structural fund factors matter (e.g., AUM scale and liquidity constraints in smaller-cap spaces, expense ratio drag, portfolio concentration)?
+  - What structural fund factors matter?
 - Every metric, factor weight, or rule you introduce must have a coherent financial rationale that you can clearly articulate and defend.
 
 ### Explicitly Consider Underlying Index Risk
