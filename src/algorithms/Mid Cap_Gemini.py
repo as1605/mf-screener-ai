@@ -331,7 +331,7 @@ def main(date=None):
     df_res['rank'] = df_res['score'].rank(ascending=False).astype(int)
     df_res = df_res.sort_values('rank')
     
-    cols = ['mfId', 'name', 'rank', 'score', 'aum', 'cagr_3y', 'win_rate', 'max_dd', 'sortino', 'asym', 'appraisal', 'r2']
+    cols = ['mfId', 'name', 'rank', 'score', 'data_days', 'aum', 'cagr_3y', 'win_rate', 'max_dd', 'sortino', 'asym', 'appraisal', 'r2']
     final_df = df_res[cols].copy()
     
     # Format for readability

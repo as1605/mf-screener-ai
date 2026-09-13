@@ -396,7 +396,7 @@ def main(date: Optional[str] = None):
     df_scored = compute_composite_score(df_results)
 
     out_cols = [
-        "mfId", "name", "rank", "score", "subsector", "aum",
+        "mfId", "name", "rank", "score", "data_days", "subsector", "aum",
         "cagr_3y", "cagr_5y", "mean_xirr", "p20_xirr",
         "asymmetry", "appraisal_1y", "r2_1y",
         "ir_3y", "ir_6m", "vol_3y", "vol_6m", "d_cap_3y", "d_cap_6m",
