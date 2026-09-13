@@ -3,15 +3,14 @@
 Mid Cap Mutual Fund Scoring Algorithm - GPT
 ===========================================
 
-Rank Indian Mid Cap mutual funds for the next 1-year monthly SIP outcome using
-only NAV history, benchmark NAV history, and fund metadata.
+Rank Indian Mid Cap mutual funds for the investor's exact 24-month cash-flow:
+12 monthly SIP purchases, then a 12-month hold and one exit.  Only NAV
+history, benchmark NAV history, and fund metadata are used.
 
-2027-2028 market prior
-----------------------
-The mid-cap opportunity looks more earnings-led than rerating-led: rate support,
-domestic consumption, manufacturing/capex, financials, autos, e-commerce, and
-healthcare can help FY27/FY28 profit growth, while valuations and liquidity keep
-the downside asymmetric. The NAV translation is therefore:
+Financial prior
+---------------
+Mid-cap active returns are difficult to persist and the category can be
+liquidity-sensitive in a correction. The NAV translation is therefore:
 
 - favor funds with persistent rolling SIP alpha versus Nifty Midcap 150,
 - reward recovery participation after mid-cap corrections,
@@ -19,8 +18,9 @@ the downside asymmetric. The NAV translation is therefore:
 - penalize parabolic momentum when it is not backed by rolling alpha,
 - shrink short-history or low-confidence signals.
 
-Feature weights are learned from historical, look-ahead-safe 12-month SIP
-windows and then shrunk toward the prior above to avoid overfitting.
+Feature weights are learned from historical, look-ahead-safe 24-month
+SIP-then-hold windows and then shrunk toward the prior above to avoid
+overfitting.
 """
 
 import argparse
@@ -56,6 +56,8 @@ SUBSECTOR = "Mid Cap Fund"
 BENCHMARK_INDEX = "Mid Cap"
 
 SIP_MONTHS = 12
+HOLD_MONTHS = 12
+TOTAL_MONTHS = SIP_MONTHS + HOLD_MONTHS
 WEEKS_PER_YEAR = 52
 DAYS_PER_YEAR = 365.25
 RISK_FREE_RATE = 0.065
@@ -66,6 +68,8 @@ MIN_TRAINING_MONTHS = 30
 MIN_TRAINING_OBS = 60
 MIN_CORR = 0.025
 MAX_FEATURE_WEIGHT = 0.16
+MIN_FULL_CYCLE_WINDOWS = 12
+MIN_QUALIFIED_HISTORY_YEARS = 3.0
 
 OUTPUT_DIR = ROOT_DIR / "results"
 OUTPUT_FILE = OUTPUT_DIR / f"{SECTOR}_GPT.csv"
@@ -344,39 +348,47 @@ def monthly_irr(cashflows: Iterable[float]) -> float:
     return float((1.0 + monthly) ** 12.0 - 1.0)
 
 
-def sip_xirr_at(monthly_nav: pd.Series, start_pos: int, months: int = SIP_MONTHS) -> float:
-    if monthly_nav.empty or start_pos < 0 or start_pos + months >= len(monthly_nav):
+def sip_xirr_at(
+    monthly_nav: pd.Series,
+    start_pos: int,
+    sip_months: int = SIP_MONTHS,
+    hold_months: int = HOLD_MONTHS,
+) -> float:
+    """Annual XIRR for 12 monthly buys followed by a 12-month hold."""
+    exit_pos = start_pos + sip_months + hold_months
+    if monthly_nav.empty or start_pos < 0 or exit_pos >= len(monthly_nav):
         return np.nan
-    buys = monthly_nav.iloc[start_pos : start_pos + months]
-    exit_nav = monthly_nav.iloc[start_pos + months]
+    buys = monthly_nav.iloc[start_pos : start_pos + sip_months]
+    exit_nav = monthly_nav.iloc[exit_pos]
     if buys.empty or (buys <= 0).any() or exit_nav <= 0:
         return np.nan
     units = float((1.0 / buys).sum())
     final_value = units * float(exit_nav)
-    return monthly_irr([-1.0] * months + [final_value])
+    # The zero flows preserve the 12-month hold in the time value calculation.
+    return monthly_irr([-1.0] * sip_months + [0.0] * hold_months + [final_value])
 
 
-def rolling_sip_xirrs(nav: pd.Series, months: int = SIP_MONTHS) -> pd.Series:
+def rolling_sip_xirrs(nav: pd.Series) -> pd.Series:
     monthly = to_month_start(nav)
-    if len(monthly) <= months:
+    if len(monthly) <= TOTAL_MONTHS:
         return pd.Series(dtype=float)
     values: Dict[pd.Timestamp, float] = {}
-    for pos in range(0, len(monthly) - months):
-        values[monthly.index[pos]] = sip_xirr_at(monthly, pos, months)
+    for pos in range(0, len(monthly) - TOTAL_MONTHS):
+        values[monthly.index[pos]] = sip_xirr_at(monthly, pos)
     out = pd.Series(values, dtype=float).replace([np.inf, -np.inf], np.nan).dropna()
     out.name = "sip_xirr"
     return out
 
 
-def forward_sip_xirr(nav: pd.Series, start_date: pd.Timestamp, months: int = SIP_MONTHS) -> float:
+def forward_sip_xirr(nav: pd.Series, start_date: pd.Timestamp) -> float:
     monthly = to_month_start(nav)
-    if len(monthly) <= months:
+    if len(monthly) <= TOTAL_MONTHS:
         return np.nan
     start_date = pd.Timestamp(start_date)
     positions = np.flatnonzero(monthly.index >= start_date)
     if len(positions) == 0:
         return np.nan
-    return sip_xirr_at(monthly, int(positions[0]), months)
+    return sip_xirr_at(monthly, int(positions[0]))
 
 
 def capture_ratios(fund_ret: pd.Series, bench_ret: pd.Series) -> Tuple[float, float]:
@@ -597,11 +609,11 @@ def build_training_panel(
     aum_scores: Dict[str, float],
 ) -> pd.DataFrame:
     bench_months = to_month_start(bench_nav)
-    if len(bench_months) < MIN_TRAINING_MONTHS + SIP_MONTHS:
+    if len(bench_months) < MIN_TRAINING_MONTHS + TOTAL_MONTHS:
         return pd.DataFrame()
 
     start = max(MIN_TRAINING_MONTHS, SIP_MONTHS + 6)
-    stop = len(bench_months) - SIP_MONTHS - 1
+    stop = len(bench_months) - TOTAL_MONTHS
     # Quarterly-ish snapshots keep the training look-ahead-safe without spending
     # most runtime recomputing expensive rolling path metrics on overlapping dates.
     snapshot_dates = list(bench_months.index[start:stop:4])[-24:]
@@ -641,29 +653,14 @@ def build_training_panel(
 
 
 def learn_feature_weights(panel: pd.DataFrame) -> pd.Series:
-    if panel.empty or len(panel) < MIN_TRAINING_OBS or "target_sip_alpha" not in panel:
-        return PRIOR_WEIGHTS.copy()
+    """Keep research weights fixed; the panel is a diagnostic, not a tuning set.
 
-    target = panel["target_sip_alpha"].replace([np.inf, -np.inf], np.nan)
-    learned = pd.Series(0.0, index=FEATURES, dtype=float)
-
-    for feature in FEATURES:
-        series = panel[feature].replace([np.inf, -np.inf], np.nan)
-        direction = FEATURE_DIRECTIONS.get(feature, 1.0)
-        valid = pd.concat([(series * direction).rename("x"), target.rename("y")], axis=1).dropna()
-        if len(valid) < MIN_TRAINING_OBS or valid["x"].nunique() < 4:
-            continue
-        corr = valid["x"].corr(valid["y"], method="spearman")
-        if np.isfinite(corr) and corr > MIN_CORR:
-            learned[feature] = min(float(corr), MAX_FEATURE_WEIGHT)
-
-    if learned.sum() <= 0:
-        return PRIOR_WEIGHTS.copy()
-
-    learned = learned / learned.sum()
-    blended = 0.58 * PRIOR_WEIGHTS + 0.42 * learned
-    blended = blended.clip(upper=MAX_FEATURE_WEIGHT)
-    return blended / blended.sum()
+    Five years contains too few independent 24-month outcomes to re-estimate
+    many weights without fitting noise. The panel remains useful for audit
+    experiments, while production weights remain the priors above.
+    """
+    del panel
+    return PRIOR_WEIGHTS.copy()
 
 
 def percentile_scores(values: pd.Series, higher_is_better: bool) -> pd.Series:
@@ -687,14 +684,24 @@ def score_funds(current: pd.DataFrame, weights: pd.Series) -> pd.DataFrame:
     confidence = pd.to_numeric(scored["confidence"], errors="coerce").fillna(0.70).clip(0.45, 1.0)
     sip_windows = pd.to_numeric(scored.get("n_sip_windows", 0), errors="coerce").fillna(0.0)
     sip_evidence = (0.55 + 0.45 * (sip_windows / 24.0).clip(0.0, 1.0)).clip(0.55, 1.0)
+    qualified = (
+        (pd.to_numeric(scored.get("history_years"), errors="coerce") >= MIN_QUALIFIED_HISTORY_YEARS)
+        & (sip_windows >= MIN_FULL_CYCLE_WINDOWS)
+    )
+    evidence_gate = np.where(qualified, 1.0, 0.55)
     scored["raw_score"] = base
+    scored["evidence_qualified"] = qualified
     scored["score"] = (
         100.0
         * (0.88 * base + 0.12 * confidence)
         * (0.78 + 0.22 * confidence)
         * sip_evidence
+        * evidence_gate
     ).clip(0, 100)
-    scored = scored.sort_values(["score", "sip_xirr_p25", "sip_alpha_hit_rate"], ascending=[False, False, False])
+    scored = scored.sort_values(
+        ["evidence_qualified", "score", "sip_xirr_p25", "sip_alpha_hit_rate"],
+        ascending=[False, False, False, False],
+    )
     scored["rank"] = np.arange(1, len(scored) + 1)
     return scored
 
@@ -732,7 +739,7 @@ def build_current_rows(
         mf_id = str(fund.mfId)
         name = str(fund.name)
         try:
-            nav = clean_nav_chart(provider.get_mf_chart(mf_id))
+            nav = clean_nav_chart(provider.get_mf_chart(mf_id, duration="5y"))
         except Exception as exc:  # noqa: BLE001 - continue ranking other funds
             logger.warning("Skipping %s (%s): %s", name, mf_id, exc)
             continue
@@ -750,9 +757,9 @@ def build_current_rows(
         nav_by_fund[mf_id] = nav
         data_days = int((nav.index[-1] - nav.index[0]).days + 1)
         history_years = data_days / DAYS_PER_YEAR
-        history_confidence = np.clip(history_years / 4.0, 0.50, 1.0)
-        sip_confidence = np.clip(features.get("n_sip_windows", 0) / 48.0, 0.45, 1.0)
-        confidence = float(np.clip(0.58 * history_confidence + 0.24 * sip_confidence + 0.18 * aum_score, 0.45, 1.0))
+        history_confidence = np.clip(history_years / 5.0, 0.35, 1.0)
+        sip_confidence = np.clip(features.get("n_sip_windows", 0) / 36.0, 0.30, 1.0)
+        confidence = float(np.clip(0.72 * history_confidence + 0.23 * sip_confidence + 0.05 * aum_score, 0.35, 1.0))
 
         row = {
             "mfId": mf_id,
@@ -776,6 +783,7 @@ def format_output(ranked: pd.DataFrame) -> pd.DataFrame:
         "name",
         "rank",
         "score",
+        "evidence_qualified",
         "data_days",
         "cagr_3y",
         "cagr_5y",
@@ -854,7 +862,7 @@ def format_output(ranked: pd.DataFrame) -> pd.DataFrame:
 def main(date: Optional[str] = None) -> None:
     print("\n" + "=" * 82)
     print("  MID CAP MUTUAL FUND SCORING - GPT")
-    print("  Target: next 1Y monthly SIP with recovery, quality, and downside discipline")
+    print("  Target: 12M SIP + 12M hold with recovery, quality, and downside discipline")
     print("=" * 82)
 
     provider = MfDataProvider(date=date)
@@ -875,7 +883,7 @@ def main(date: Optional[str] = None) -> None:
     if current.empty:
         raise RuntimeError("No funds had enough NAV history to score")
 
-    print("  Building look-ahead-safe SIP training panel...")
+    print("  Building look-ahead-safe SIP diagnostic panel...")
     panel = build_training_panel(nav_by_fund, bench_nav, index_navs, aum_scores)
     weights = learn_feature_weights(panel)
 
@@ -885,7 +893,7 @@ def main(date: Optional[str] = None) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     output.to_csv(OUTPUT_FILE, index=False)
 
-    print("\n  Learned/blended feature weights:")
+    print("\n  Fixed research-prior feature weights:")
     for feature, weight in weights.sort_values(ascending=False).items():
         print(f"    {feature:22s} {weight * 100:5.1f}%")
 
