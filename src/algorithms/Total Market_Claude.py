@@ -1100,6 +1100,19 @@ def percentile_rank(s: pd.Series, higher_better: bool = True) -> pd.Series:
     return ranks * 100.0
 
 
+def subsector_aware_rank(df, col, subsector_col='subsector', higher_better=True):
+    """Z-score within subsector, then rank across full universe.
+    Prevents Value funds from being systematically penalized for
+    their inherently different drawdown/beta profiles."""
+    z_within = df.groupby(subsector_col)[col].transform(
+        lambda x: (x - x.mean()) / x.std() if x.std() > 1e-9 else 0
+    )
+    if higher_better:
+        return z_within.rank(method='average', pct=True, na_option='keep') * 100.0
+    else:
+        return (-z_within).rank(method='average', pct=True, na_option='keep') * 100.0
+
+
 def confidence_haircut(data_weeks: int) -> float:
     if data_weeks < LB_1Y:
         return 0.55
@@ -1122,7 +1135,7 @@ def assemble_p1_score(df: pd.DataFrame) -> pd.Series:
     return (
         0.30 * s_med + 0.20 * s_dn + 0.15 * s_rc
         + 0.20 * s_hb + 0.15 * s_hp
-    ).fillna(0.0)
+    ).fillna(np.nan)
 
 
 def assemble_p2_score(df: pd.DataFrame) -> pd.Series:
@@ -1141,9 +1154,9 @@ def assemble_p3_score(df: pd.DataFrame) -> pd.Series:
     """Year-2 hold resilience."""
     s_fwd = percentile_rank(df["forward_alpha_24m"], higher_better=True)
     s_cap = percentile_rank(df["regime_capture_spread"], higher_better=True)
-    s_bce = percentile_rank(df["bear_correction_excess"], higher_better=True)
-    s_rec = percentile_rank(df["recovery_half_life"], higher_better=False)  # smaller = faster
-    s_curdd = percentile_rank(df["current_drawdown"], higher_better=True)   # closer to 0 = ok
+    s_bce = subsector_aware_rank(df, "bear_correction_excess", higher_better=True)
+    s_rec = subsector_aware_rank(df, "recovery_half_life", higher_better=False)  # smaller = faster
+    s_curdd = subsector_aware_rank(df, "current_drawdown", higher_better=True)   # closer to 0 = ok
     return (
         0.30 * s_fwd + 0.20 * s_cap + 0.15 * s_bce
         + 0.25 * s_rec + 0.10 * s_curdd
@@ -1152,8 +1165,8 @@ def assemble_p3_score(df: pd.DataFrame) -> pd.Series:
 
 def assemble_p4_score(df: pd.DataFrame) -> pd.Series:
     """Active conviction & capacity."""
-    s_act  = percentile_rank(df["active_skill_signal"], higher_better=True)
-    s_beta = percentile_rank(df["beta_stability"], higher_better=True)
+    s_act  = subsector_aware_rank(df, "active_skill_signal", higher_better=True)
+    s_beta = subsector_aware_rank(df, "beta_stability", higher_better=True)
     # AUM-capacity multiplier scaled to 0..100; 1.0 = 100, 0.85 = 0
     cap_score = ((df["aum_capacity_mult"].fillna(1.0) - 0.85) / 0.15) * 100.0
     cap_score = cap_score.clip(lower=0.0, upper=100.0)
@@ -1174,14 +1187,28 @@ def assemble_p5_score(df: pd.DataFrame) -> pd.Series:
 
 
 def composite_score(df: pd.DataFrame) -> pd.Series:
-    raw = (
-        PILLAR_WEIGHTS["p1_hybrid_sip_hold"]    * df["p1_score"]
-        + PILLAR_WEIGHTS["p2_skill_consistency"]  * df["p2_score"]
-        + PILLAR_WEIGHTS["p3_hold_resilience"]    * df["p3_score"]
-        + PILLAR_WEIGHTS["p4_conviction_capac"]   * df["p4_score"]
-        + PILLAR_WEIGHTS["p5_compounding_path"]   * df["p5_score"]
-    )
-    return raw * df["confidence"]
+    pillar_cols = ['p1_score', 'p2_score', 'p3_score', 'p4_score', 'p5_score']
+    # Match global PILLAR_WEIGHTS
+    pillar_w = [
+        PILLAR_WEIGHTS["p1_hybrid_sip_hold"],
+        PILLAR_WEIGHTS["p2_skill_consistency"],
+        PILLAR_WEIGHTS["p3_hold_resilience"],
+        PILLAR_WEIGHTS["p4_conviction_capac"],
+        PILLAR_WEIGHTS["p5_compounding_path"]
+    ]
+    
+    scores = []
+    for idx, row in df.iterrows():
+        available = [(w, row[c]) for w, c in zip(pillar_w, pillar_cols)
+                     if pd.notna(row[c]) and row[c] > 0]
+        if not available:
+            scores.append(0.0)
+            continue
+        ws, vs = zip(*available)
+        total_w = sum(ws)
+        scores.append(sum(w/total_w * v for w, v in zip(ws, vs)))
+    
+    return pd.Series(scores, index=df.index) * df["confidence"]
 
 
 # ===================================================================
@@ -1210,7 +1237,7 @@ def load_aligned_navs(
     for _, row in funds.iterrows():
         mf_id = row["mfId"]
         try:
-            chart = provider.get_mf_chart(mf_id)
+            chart = provider.get_mf_chart(mf_id, duration='5y')
         except Exception as exc:
             logger.warning(f"{mf_id}: failed to load chart ({exc})")
             continue

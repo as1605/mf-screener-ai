@@ -147,7 +147,7 @@ def clean_nav_to_series(df: pd.DataFrame) -> pd.Series:
     s = out.set_index("timestamp")["nav"]
     if s.index.tz is not None:
         s.index = s.index.tz_convert(None)
-    return s
+    return s.resample("W-FRI").last().dropna()
 
 
 def weekly_returns(nav: pd.Series) -> pd.Series:
@@ -273,6 +273,12 @@ def empirical_forward_mix(reg: pd.Series, horizon_weeks: int = LB_1Y) -> np.ndar
             # Regime never observed in training window - assume mean reversion to the
             # peer-empirical regime distribution.
             M[r] = np.bincount(arr, minlength=N_REGIMES) / max(1, len(arr))
+
+    # Add Bayesian regularization by blending with a uniform prior
+    REGIME_PRIOR_WEIGHT = 0.15
+    uniform_prior = np.ones((N_REGIMES, N_REGIMES)) / N_REGIMES
+    M = (1 - REGIME_PRIOR_WEIGHT) * M + REGIME_PRIOR_WEIGHT * uniform_prior
+
     return M
 
 
@@ -583,13 +589,12 @@ def sip_xirr_for_window(
     monthly_amount: float = SIP_MONTHLY_AMOUNT,
 ) -> Optional[float]:
     """
-    Simulate monthly SIP buys on the 1st of each month from `start` to `end`.
-    Buy at the first available NAV on/after the 1st (no peeking). Final
-    valuation uses the last NAV observed at or before `end`.
+    Simulate 12 monthly SIP buys starting from `start`, then hold until `end` (24 months total).
     """
     if nav is None or len(nav) == 0 or end <= start:
         return None
-    buys = pd.date_range(start=start, end=end, freq="MS")
+    # 12 monthly buys
+    buys = pd.date_range(start=start, periods=12, freq="MS")
     if len(buys) < 6:
         return None
 
@@ -637,7 +642,7 @@ def sip_xirr_for_window(
 
 def rolling_sip_xirrs(
     nav: pd.Series,
-    window_years: int = 1,
+    window_years: int = 2,
     step_weeks: int = 4,
     bench_nav: Optional[pd.Series] = None,
 ) -> Dict[str, Optional[float]]:
@@ -891,7 +896,7 @@ def analyse_fund(
     res["p2_personal_stability"] = rank_stability_score(blocks)
 
     # P3 - rolling SIP XIRRs vs benchmark
-    sip = rolling_sip_xirrs(fund_nav, window_years=1, step_weeks=4, bench_nav=bench_nav)
+    sip = rolling_sip_xirrs(fund_nav, window_years=2, step_weeks=4, bench_nav=bench_nav)
     res["p3_sip_xirr_p50"] = sip["sip_p50"]
     res["p3_sip_xirr_p25"] = sip["sip_p25"]
     res["p3_sip_hit_vs_bench"] = sip["sip_hit"]
@@ -1055,7 +1060,7 @@ def compute_pillar_scores(
     # ----- P5: active share & AUM (drops out if no holdings) -----
     p5_pct_top10 = percentile_rank(df["p5_top10_conc"], higher_is_better=False)  # lower concentration = better
     p5_pct_n = percentile_rank(df["p5_n_holdings"], higher_is_better=True)
-    p5_pct_ch3m = percentile_rank(df["p5_avg_change3m"], higher_is_better=True)  # more activity = better signal of management
+    p5_pct_ch3m = percentile_rank(df["p5_avg_change3m"], higher_is_better=False)  # less turnover = better (lower friction)
     p5_combined = []
     has_any_p5 = False
     for a, b_, c, h in zip(p5_pct_top10, p5_pct_n, p5_pct_ch3m, df["p5_aum_haircut"]):
@@ -1142,11 +1147,11 @@ def diagnostic_backtest(
     """
     common_idx = bench_nav.index
     n = len(common_idx)
-    if n < LB_3Y + LB_1Y + 4:
+    if n < LB_3Y + LB_2Y + 4:
         return pd.DataFrame()
 
-    # Pick eval indices: most-recent eval is at n - LB_1Y - 1
-    last_eval = n - LB_1Y - 1
+    # Pick eval indices: most-recent eval is at n - LB_2Y - 1
+    last_eval = n - LB_2Y - 1
     first_eval = max(LB_2Y, last_eval - eval_step_weeks * (n_evals - 1))
     eval_indices = list(range(first_eval, last_eval + 1, eval_step_weeks))
     if not eval_indices:
@@ -1158,9 +1163,9 @@ def diagnostic_backtest(
     records: List[Dict] = []
     for ep in eval_indices[-n_evals:]:
         ep_ts = common_idx[ep]
-        ep_fwd_ts = common_idx[min(ep + LB_1Y, n - 1)]
+        ep_fwd_ts = common_idx[min(ep + LB_2Y, n - 1)]
 
-        # Forward 1Y SIP XIRR per fund (the target)
+        # Forward 2Y SIP XIRR per fund (the target)
         fwd_xirrs: Dict[str, float] = {}
         # Pillar proxies per fund
         p1: Dict[str, float] = {}
@@ -1206,8 +1211,8 @@ def diagnostic_backtest(
             if len(blocks) > 0:
                 p2[fid] = float(np.mean(blocks))
 
-            # P3 proxy: median of rolling 1Y SIP XIRRs over trailing data
-            sip_back = rolling_sip_xirrs(train, window_years=1, step_weeks=8, bench_nav=None)
+            # P3 proxy: median of rolling 2Y SIP XIRRs over trailing data
+            sip_back = rolling_sip_xirrs(train, window_years=2, step_weeks=8, bench_nav=None)
             if sip_back.get("sip_p50") is not None:
                 p3[fid] = sip_back["sip_p50"]
 
@@ -1320,7 +1325,7 @@ def main(date: Optional[str] = None) -> None:
         name = str(row["name"])
         aum = float(row.get("aum", 0) or 0)
         try:
-            chart = provider.get_mf_chart(mf_id)
+            chart = provider.get_mf_chart(mf_id, duration='5y')
             fund_nav = clean_nav_to_series(chart)
             if len(fund_nav) < 4:
                 logger.warning("Skip %s (%s): only %d NAV points", mf_id, name, len(fund_nav))

@@ -79,13 +79,14 @@ BENCHMARK_INDEX = "Small Cap"          # resolves to .NISM250
 RISK_FREE_RATE = 0.065                 # ~6.5 % Indian T-bill proxy
 
 SIP_MONTHS = 12                        # task: monthly SIP for 1 year
+HOLD_MONTHS = 12                       # 12-month hold after SIP
 SIP_AMOUNT = 1.0                       # arbitrary; XIRR is amount-invariant
 
 WEEKS_PER_YEAR = 52
 DAYS_PER_YEAR = 365.25
 
-MIN_MONTHS_FOR_SIP = SIP_MONTHS + 1    # 12 buys + 1 redemption point
-MIN_MONTHS_FOR_BACKTEST = SIP_MONTHS + 1
+MIN_MONTHS_FOR_SIP = SIP_MONTHS + HOLD_MONTHS + 1
+MIN_MONTHS_FOR_BACKTEST = SIP_MONTHS + HOLD_MONTHS + 1
 MIN_DATA_DAYS_FULL_CONFIDENCE = int(3 * DAYS_PER_YEAR)
 TRACK_RECORD_HAIRCUT = 0.85
 NOISE_FLOOR_RHO = 0.05                 # drop features with |rho| < this
@@ -157,24 +158,25 @@ def _xirr_bisect(
     return 0.5 * (lo + hi)
 
 
-def sip_xirr_at(monthly_nav: pd.Series, start_idx: int, months: int = SIP_MONTHS) -> Optional[float]:
+def sip_xirr_at(monthly_nav: pd.Series, start_idx: int, months: int = SIP_MONTHS, hold_months: int = HOLD_MONTHS) -> Optional[float]:
     """
     Annualised XIRR of a monthly SIP starting at monthly_nav[start_idx].
 
     Cashflows: -SIP_AMOUNT at each of the next `months` month-starts, then
     +SIP_AMOUNT * sum(1/nav_i) * nav_redeem at the redemption month.
     """
-    end_idx = start_idx + months
-    if start_idx < 0 or end_idx >= len(monthly_nav):
+    sip_end_idx = start_idx + months
+    redeem_idx = sip_end_idx + hold_months
+    if start_idx < 0 or redeem_idx >= len(monthly_nav):
         return None
 
-    invest_navs = monthly_nav.iloc[start_idx:end_idx]
-    redeem_nav = monthly_nav.iloc[end_idx]
+    invest_navs = monthly_nav.iloc[start_idx:sip_end_idx]
+    redeem_nav = monthly_nav.iloc[redeem_idx]
     if (invest_navs <= 0).any() or redeem_nav <= 0:
         return None
 
-    invest_dates = monthly_nav.index[start_idx:end_idx]
-    redeem_date = monthly_nav.index[end_idx]
+    invest_dates = monthly_nav.index[start_idx:sip_end_idx]
+    redeem_date = monthly_nav.index[redeem_idx]
 
     units = SIP_AMOUNT / invest_navs.values
     redeem_value = float(units.sum() * redeem_nav)
@@ -186,19 +188,19 @@ def sip_xirr_at(monthly_nav: pd.Series, start_idx: int, months: int = SIP_MONTHS
     return _xirr_bisect(cashflows, times)
 
 
-def rolling_sip_xirr_series(monthly_nav: pd.Series, months: int = SIP_MONTHS) -> pd.Series:
+def rolling_sip_xirr_series(monthly_nav: pd.Series, months: int = SIP_MONTHS, hold_months: int = HOLD_MONTHS) -> pd.Series:
     """
     Series of realized 1Y SIP XIRRs.
 
     Indexed by SIP START date (first cashflow). Value at index t is the
     XIRR of a SIP that started at month t and redeemed at month t+months.
     """
-    if len(monthly_nav) < months + 1:
+    if len(monthly_nav) < months + hold_months + 1:
         return pd.Series(dtype=float)
 
     out = {}
-    for i in range(len(monthly_nav) - months):
-        r = sip_xirr_at(monthly_nav, i, months=months)
+    for i in range(len(monthly_nav) - (months + hold_months)):
+        r = sip_xirr_at(monthly_nav, i, months=months, hold_months=hold_months)
         if r is not None and np.isfinite(r):
             out[monthly_nav.index[i]] = r
     return pd.Series(out, dtype=float).sort_index()
@@ -315,6 +317,18 @@ def _capture_ratios(
     return up_cap, down_cap
 
 
+def smallcap_stress_alpha(fund_ret, bench_ret, tail_pct=0.10):
+    """Alpha during worst 10% of benchmark return weeks.
+    Small-cap funds that protect capital during liquidity crises
+    compound dramatically better over the full 24-month cycle."""
+    aligned = pd.concat({'f': fund_ret, 'b': bench_ret}, axis=1).dropna()
+    threshold = aligned['b'].quantile(tail_pct)
+    stress_periods = aligned[aligned['b'] <= threshold]
+    if len(stress_periods) < 5:
+        return None
+    excess = (stress_periods['f'] - stress_periods['b']).mean()
+    return float(excess * 52)  # annualized
+
 def _info_ratio(
     fund_nav: pd.Series, bench_nav: pd.Series, lookback_years: float = 2.0
 ) -> Optional[float]:
@@ -429,6 +443,7 @@ FEATURE_COLS = [
     "sortino_3y",
     "cagr_3y",
     "cagr_5y",
+    "smallcap_stress_alpha",
 ]
 
 # Directional priors:
@@ -456,6 +471,7 @@ FEATURE_PRIORS: Dict[str, int] = {
     # Genuinely two-sided -- could go either way and we WANT to learn:
     "cagr_3y":               0,   # past CAGR may persist or mean-revert
     "cagr_5y":               0,
+    "smallcap_stress_alpha": +1,
     "late_mom_6m":           0,   # momentum vs. mean-reversion
     "dd_depth":              0,   # depressed price -> rebound, or weak fund
     "bench_dd_depth":        0,   # regime gauge
@@ -488,6 +504,9 @@ def _features_at(
     feats["up_capture_2y"] = up_cap
     feats["down_capture_2y"] = down_cap
     feats["info_ratio_2y"] = _info_ratio(fund_nav, bench_nav, lookback_years=2.0)
+    
+    f_ret, b_ret = _aligned_weekly_returns(fund_nav, bench_nav, lookback_years=3.0)
+    feats["smallcap_stress_alpha"] = smallcap_stress_alpha(f_ret, b_ret)
 
     feats["nav_trend_residual"] = _trend_residual(fund_nav, lookback_years=5.0)
     feats["bench_trend_residual"] = _trend_residual(bench_nav, lookback_years=5.0)
@@ -519,7 +538,7 @@ def build_history_panel(
         fund_monthly: pd.Series = payload["monthly"]
         fund_sip: pd.Series = payload["sip"]
 
-        if len(fund_monthly) < 2 * SIP_MONTHS + 1:
+        if len(fund_monthly) < 2 * (SIP_MONTHS + HOLD_MONTHS) + 1:
             # Need at least one historical SIP that has redeemed before any
             # forward SIP would have started. Otherwise the panel is empty.
             continue
@@ -528,7 +547,7 @@ def build_history_panel(
         #   - forward 1Y SIP from t available (i.e. fund_sip[t] exists)
         #   - some completed past SIP history strictly before t
         for t in fund_sip.index:
-            redeem_date = t + pd.DateOffset(months=SIP_MONTHS)
+            redeem_date = t + pd.DateOffset(months=SIP_MONTHS + HOLD_MONTHS)
 
             fund_nav_at_t = fund_nav[fund_nav.index <= t]
             bench_nav_at_t = bench_nav[bench_nav.index <= t]
@@ -536,7 +555,7 @@ def build_history_panel(
                 continue
 
             # SIPs that REDEEMED on or before t (their start <= t - SIP_MONTHS)
-            cutoff_start = t - pd.DateOffset(months=SIP_MONTHS)
+            cutoff_start = t - pd.DateOffset(months=SIP_MONTHS + HOLD_MONTHS)
             fund_sip_done = fund_sip[fund_sip.index <= cutoff_start]
             bench_sip_done = bench_sip[bench_sip.index <= cutoff_start]
 
@@ -654,7 +673,22 @@ def compute_feature_weights(
             else:
                 statuses[col] = "drop_noise"
 
+
     total = sum(raw_weights.values())
+    
+    THEORY_WEIGHTS = {
+        'sip_alpha_median': 0.18,
+        'sip_consistency': 0.14,
+        'sortino_3y': 0.14,
+        'down_capture_2y': 0.12,
+        'info_ratio_2y': 0.10,
+        'up_capture_2y': 0.06,
+        'recovery_slope': 0.06,
+        'sip_1y_p20': 0.08,
+        'sip_1y_median': 0.07,
+        'dd_depth': 0.05,
+    }
+
     if total == 0:
         # Degenerate: nothing usable. Fall back to equal weight on the most
         # robust prior-positive SIP-quality features so we still produce a
@@ -671,7 +705,18 @@ def compute_feature_weights(
             statuses[c] = "fallback"
         return weights, signs, correlations, statuses
 
-    weights = {c: w / total for c, w in raw_weights.items()}
+    data_weights = {c: w / total for c, w in raw_weights.items()}
+    
+    weights = {}
+    for col in FEATURE_COLS:
+        dw = data_weights.get(col, 0.0)
+        tw = THEORY_WEIGHTS.get(col, 0.0)
+        final_w = 0.3 * dw + 0.7 * tw
+        if final_w > 0:
+            weights[col] = final_w
+            if col not in signs:
+                signs[col] = FEATURE_PRIORS.get(col, 1)
+
     return weights, signs, correlations, statuses
 
 
@@ -730,7 +775,7 @@ def composite_score(
 # ===================================================================
 
 def _load_nav(provider: MfDataProvider, mf_id: str) -> Optional[pd.Series]:
-    chart = provider.get_mf_chart(mf_id)
+    chart = provider.get_mf_chart(mf_id, duration='5y')
     if chart is None or len(chart) < 30:
         return None
     chart = chart.copy()
@@ -902,6 +947,7 @@ def main(date: Optional[str] = None) -> None:
     output["down_capture_2y"] = out["down_capture_2y"].apply(ratio_fmt)
     output["nav_trend_residual"] = out["nav_trend_residual"].apply(ratio_fmt)
     output["sortino_3y"] = out["sortino_3y"].apply(ratio_fmt)
+    output["stress_alpha"] = out["smallcap_stress_alpha"].apply(pct_fmt)
     output["aum"] = out["aum"]
     output["n_sip_windows"] = out["n_sip_windows"]
 
