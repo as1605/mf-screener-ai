@@ -368,19 +368,19 @@ def compute_decision_tree_score(df: pd.DataFrame) -> pd.DataFrame:
         # IR Decay
         ir_3y, ir_6m = row.get("ir_3y"), row.get("ir_6m")
         if pd.notna(ir_3y) and pd.notna(ir_6m) and ir_3y > 0:
-            ir_decay = ((ir_3y - ir_6m) / ir_3y).clip(lower=0.0, upper=0.5)
+            ir_decay = float(np.clip((ir_3y - ir_6m) / ir_3y, 0.0, 0.5))
             decay_mult *= (1.0 - 0.4 * ir_decay) # max 20% penalty
                 
         # Volatility Expansion
         vol_3y, vol_6m = row.get("vol_3y"), row.get("vol_6m")
         if pd.notna(vol_3y) and pd.notna(vol_6m) and vol_3y > 0:
-            vol_exp = ((vol_6m - vol_3y) / vol_3y).clip(lower=0.0, upper=0.5)
+            vol_exp = float(np.clip((vol_6m - vol_3y) / vol_3y, 0.0, 0.5))
             decay_mult *= (1.0 - 0.4 * vol_exp)
                 
         # Downside Capture Decay
         dc_3y, dc_6m = row.get("downside_cap_3y"), row.get("downside_cap_6m")
         if pd.notna(dc_3y) and pd.notna(dc_6m) and dc_3y > 0:
-            dc_exp = ((dc_6m - dc_3y) / dc_3y).clip(lower=0.0, upper=0.5)
+            dc_exp = float(np.clip((dc_6m - dc_3y) / dc_3y, 0.0, 0.5))
             decay_mult *= (1.0 - 0.4 * dc_exp)
             
         df.at[idx, "score"] *= decay_mult
