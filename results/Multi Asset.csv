@@ -1,38 +1,38 @@
 mfId,name,total_rank,final_score,avg_data_days,avg_cagr_3y,score_Claude,score_GPT,score_Gemini,score_Grok
-M_NIPU,Nippon India Multi Asset Allocation Fund,1,0.971,1775.0,19.54,78.47,68.58,50.08,80.63
-M_TATI,Tata Multi Asset Allocation Fund,2,0.815,1819.0,13.74,57.23,45.06,54.14,75.37
-M_DSPUI,DSP Multi Asset Allocation Fund,3,0.805,989.0,18.66,77.39,31.1,56.16,67.29
-M_SBTO,SBI Multi Asset Allocation Fund,4,0.801,2453.0,15.46,69.13,62.23,39.36,64.82
-M_WOMT,WOC Multi Asset Allocation Fund,5,0.764,1119.0,17.15,51.62,61.09,39.44,70.34
-M_MAAO,Mahindra Manulife Multi Asset Allocation Fund,6,0.679,847.0,15.43,70.25,24.58,50.76,54.35
-M_KOTUU,Kotak Multi Asset Allocation Fund,7,0.662,1005.0,18.41,62.65,43.61,34.7,58.11
-M_ICPPP,ICICI Pru Multi Asset Allocation Fund,8,0.655,2473.0,14.62,67.84,56.2,21.89,56.13
-M_QUNS,Quant Multi Asset Allocation Fund,9,0.651,2472.0,22.66,57.18,56.1,22.13,63.21
-M_ADYUO,Aditya Birla SL Multi Asset Allocation Fund,10,0.605,1220.0,16.59,60.94,45.26,19.46,61.79
-M_EDMU,Edelweiss Multi Asset Allocation Fund,11,0.594,1087.0,7.58,55.8,46.41,24.02,56.68
-M_BANHP,Bandhan Multi Asset Allocation Fund,12,0.562,888.0,15.85,41.7,24.03,46.32,53.71
-M_UTIMA,UTI Multi Asset Allocation Fund,13,0.533,2473.0,15.53,51.31,48.35,44.29,20.28
-M_MIUD,Mirae Asset Multi Asset Allocation Fund,14,0.515,886.0,13.81,42.79,21.16,38.5,53.2
-M_HDCUU,HDFC Multi Asset Allocation Fund,15,0.515,2473.0,12.19,45.59,47.97,31.15,35.91
-M_UNUN,Union Multi Asset Allocation Fund,16,0.51,680.0,N/A (insufficient history),59.38,15.94,40.5,41.4
-M_BABL,Baroda BNP Paribas Multi Asset Fund,17,0.453,1260.0,14.96,48.55,34.02,13.18,51.84
-M_BAJAO,Bajaj Finserv Multi Asset Allocation Fund,18,0.453,772.0,N/A (insufficient history),46.12,14.41,32.1,49.0
-M_AXPU,Axis Multi Asset Allocation Fund,19,0.408,2475.0,14.26,50.15,41.12,19.2,26.51
-M_BANKD,Bank of India Multi Asset Allocation Fund,20,0.388,856.0,11.04,23.55,17.69,32.8,46.9
-M_360P,360 ONE Multi Asset Allocation Fund,21,0.385,362.0,N/A (insufficient history),48.25,22.36,16.5,41.94
-M_SUDUO,Sundaram Multi Asset Allocation Fund,22,0.382,891.0,12.71,34.72,16.98,23.2,48.75
-M_INVIP,Invesco India Multi Asset Allocation Fund,23,0.377,589.0,N/A (insufficient history),50.38,21.44,14.0,42.27
-M_HSAO,HSBC Multi Asset Allocation Fund,24,0.367,860.0,15.31,36.05,15.49,20.7,48.34
-M_SACM,Samco Multi Asset Allocation Fund,25,0.347,578.0,N/A (insufficient history),41.75,20.31,16.08,40.14
-M_LIEG,LIC MF Multi Asset Allocation Fund,26,0.344,532.0,N/A (insufficient history),51.0,14.72,13.68,40.08
-M_CAUS,Canara Rob Multi Asset Allocation Fund,27,0.344,436.0,N/A (insufficient history),43.62,17.62,15.96,40.57
-M_FRANS,Franklin India Multi Asset Allocation Fund,28,0.319,383.0,N/A (insufficient history),44.5,13.67,12.7,40.91
-M_THWY,The Wealth Company Multi Asset Allocation Fund,29,0.283,284.0,N/A (insufficient history),44.38,17.59,N/A (not ranked),39.07
-M_SHRS,Shriram Multi Asset Allocation Fund,30,0.266,1018.0,11.47,35.15,22.04,4.05,38.02
-M_PGTS,PGIM India Multi Asset Allocation Fund,31,0.265,292.0,N/A (insufficient history),43.75,12.57,N/A (not ranked),39.54
-M_GRMO,Groww Multi Asset Allocation Fund,32,0.234,354.0,N/A (insufficient history),38.12,10.48,N/A (not ranked),38.33
-M_QUUC,Quantum Multi Asset Allocation Fund,33,0.225,852.0,8.15,19.68,12.53,8.8,42.91
-M_CAPS,Capitalmind Multi Asset Allocation Fund,34,0.116,183.0,N/A (insufficient history),25.0,9.93,N/A (not ranked),N/A (not ranked)
-M_ALPR,AlphaGrep Multi Asset Allocation Fund,35,0.0,57.0,N/A (insufficient history),0.0,0.0,N/A (not ranked),N/A (not ranked)
-M_JMTS,JM Multi Asset Allocation Fund,36,0.0,64.0,N/A (insufficient history),0.0,0.0,N/A (not ranked),N/A (not ranked)
-M_ITUP,ITI Multi Asset Allocation Fund,37,0.0,10.0,N/A (insufficient history),0.0,0.0,N/A (not ranked),N/A (not ranked)
+M_NIPU,Nippon India Multi Asset Allocation Fund,1,0.931,1777.0,18.66,76.23,71.12,50.08,80.16
+M_DSPUI,DSP Multi Asset Allocation Fund,2,0.836,995.0,17.85,74.77,57.19,56.16,65.62
+M_SBTO,SBI Multi Asset Allocation Fund,3,0.817,2454.0,14.78,68.9,64.18,49.2,66.11
+M_TATI,Tata Multi Asset Allocation Fund,4,0.812,1821.0,12.51,54.34,45.73,67.68,73.97
+M_WOMT,WOC Multi Asset Allocation Fund,5,0.767,1126.0,16.76,51.21,62.84,49.31,68.95
+M_QUNS,Quant Multi Asset Allocation Fund,6,0.687,2473.0,21.8,61.05,60.09,27.67,65.03
+M_ICPPP,ICICI Pru Multi Asset Allocation Fund,7,0.659,2475.0,13.84,68.73,58.09,21.89,59.71
+M_KOTUU,Kotak Multi Asset Allocation Fund,8,0.636,1012.0,17.56,61.74,45.64,34.7,58.14
+M_MAAO,Mahindra Manulife Multi Asset Allocation Fund,9,0.624,853.0,14.44,67.48,24.27,50.76,53.9
+M_ADYUO,Aditya Birla SL Multi Asset Allocation Fund,10,0.595,1226.0,15.52,57.3,45.61,24.32,61.56
+M_UTIMA,UTI Multi Asset Allocation Fund,11,0.594,2475.0,14.65,64.9,51.08,55.36,23.8
+M_EDMU,Edelweiss Multi Asset Allocation Fund,12,0.567,1093.0,7.6,52.62,48.47,24.02,56.63
+M_HDCUU,HDFC Multi Asset Allocation Fund,13,0.535,2475.0,11.55,45.26,50.87,38.93,39.65
+M_BANHP,Bandhan Multi Asset Allocation Fund,14,0.514,894.0,14.87,39.63,23.85,46.56,53.75
+M_MIUD,Mirae Asset Multi Asset Allocation Fund,15,0.484,892.0,12.94,44.0,21.04,38.5,53.27
+M_UNUN,Union Multi Asset Allocation Fund,16,0.48,686.0,N/A (insufficient history),61.89,15.75,40.5,41.54
+M_BABL,Baroda BNP Paribas Multi Asset Fund,17,0.445,1266.0,13.9,46.96,33.64,16.48,51.82
+M_BAJAO,Bajaj Finserv Multi Asset Allocation Fund,18,0.445,779.0,N/A (insufficient history),51.47,14.66,32.1,49.71
+M_AXPU,Axis Multi Asset Allocation Fund,19,0.42,2477.0,13.2,51.08,43.12,23.68,29.07
+M_BANKD,Bank of India Multi Asset Allocation Fund,20,0.377,863.0,10.34,29.76,17.56,32.8,47.45
+M_360P,360 ONE Multi Asset Allocation Fund,21,0.364,369.0,N/A (insufficient history),48.12,21.65,16.5,42.16
+M_HSAO,HSBC Multi Asset Allocation Fund,22,0.355,866.0,13.64,38.31,15.33,20.9,48.53
+M_SUDUO,Sundaram Multi Asset Allocation Fund,23,0.344,898.0,11.23,31.06,16.31,23.2,48.59
+M_INVIP,Invesco India Multi Asset Allocation Fund,24,0.331,596.0,N/A (insufficient history),43.39,19.4,14.0,42.07
+M_SACM,Samco Multi Asset Allocation Fund,25,0.317,584.0,N/A (insufficient history),39.38,19.59,15.96,39.98
+M_CAUS,Canara Rob Multi Asset Allocation Fund,26,0.314,443.0,N/A (insufficient history),42.87,14.96,15.96,40.59
+M_LIEG,LIC MF Multi Asset Allocation Fund,27,0.31,539.0,N/A (insufficient history),49.12,13.69,11.4,40.07
+M_FRANS,Franklin India Multi Asset Allocation Fund,28,0.297,390.0,N/A (insufficient history),44.25,11.73,12.7,41.04
+M_THWY,The Wealth Company Multi Asset Allocation Fund,29,0.274,291.0,N/A (insufficient history),43.38,17.91,N/A (not ranked),39.35
+M_SHRS,Shriram Multi Asset Allocation Fund,30,0.255,1024.0,10.7,32.47,23.0,4.05,39.01
+M_PGTS,PGIM India Multi Asset Allocation Fund,31,0.248,299.0,N/A (insufficient history),42.0,11.38,N/A (not ranked),39.73
+M_QUUC,Quantum Multi Asset Allocation Fund,32,0.24,859.0,7.16,25.58,12.37,10.56,43.35
+M_GRMO,Groww Multi Asset Allocation Fund,33,0.226,361.0,N/A (insufficient history),38.12,10.11,N/A (not ranked),38.56
+M_CAPS,Capitalmind Multi Asset Allocation Fund,34,0.133,190.0,N/A (insufficient history),28.62,11.0,N/A (not ranked),N/A (not ranked)
+M_ALPR,AlphaGrep Multi Asset Allocation Fund,35,0.0,64.0,N/A (insufficient history),0.0,0.0,N/A (not ranked),N/A (not ranked)
+M_JMTS,JM Multi Asset Allocation Fund,36,0.0,71.0,N/A (insufficient history),0.0,0.0,N/A (not ranked),N/A (not ranked)
+M_ITUP,ITI Multi Asset Allocation Fund,37,0.0,17.0,N/A (insufficient history),0.0,0.0,N/A (not ranked),N/A (not ranked)
