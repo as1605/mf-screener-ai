@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
 
   schedule:
-    - cron: "0 2 * * 2"
+    # 04:37 UTC = 10:07 AM IST on Tuesday (off-peak minute to avoid GitHub queue delays)
+    - cron: "37 4 * * 2"
 
 permissions:
   contents: write
