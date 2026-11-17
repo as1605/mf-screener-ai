@@ -1,139 +1,139 @@
 mfId,name,total_rank,final_score,avg_data_days,avg_cagr_3y,score_Claude,score_GPT,score_Gemini,score_Grok
-M_AXVV,Axis Value Fund,1,0.925,1691.0,18.55,81.47,72.96,82.45,84.63
-M_AXNM,Axis Multicap Fund,2,0.921,1644.0,19.33,84.33,71.87,84.58,80.44
-M_ICCSF,ICICI Pru Focused Fund,3,0.887,2484.0,18.49,84.39,72.14,88.25,66.75
-M_INXO,Invesco India Flexi Cap Fund,4,0.871,1588.0,17.8,77.15,65.86,90.96,73.76
-M_MADN,Mahindra Manulife Multi Cap Fund,5,0.871,2088.0,17.33,77.55,66.91,82.94,78.12
-M_DSPVE,DSP Value Fund,6,0.87,1714.0,17.0,76.77,62.16,79.13,87.05
-M_BOIX,Bank of India Flexi Cap Fund,7,0.864,1801.0,18.25,70.2,61.36,93.63,81.2
-M_INVC,Invesco India Focused Fund,8,0.86,1778.0,21.97,69.06,64.92,105.63,67.83
-M_HDCEQ,HDFC Flexi Cap Fund,9,0.847,2485.0,17.28,81.72,62.68,103.52,56.48
-M_HDCAC,HDFC Value Fund,10,0.832,2486.0,16.42,74.13,66.31,96.29,59.85
-M_ICIXD,ICICI Pru Flexi Cap Fund,11,0.828,1705.0,16.43,75.09,62.56,73.52,79.48
-M_HDFSO,HDFC Focused Fund,12,0.798,2486.0,17.0,84.96,65.89,93.11,42.23
-M_SBFQ,SBI Focused Fund,13,0.796,2488.0,16.49,61.07,55.96,103.1,67.93
-M_KOTY,Kotak Focused Fund,14,0.791,1888.0,16.4,63.38,55.75,97.56,68.64
-M_KOTMU,Kotak Multi Cap Fund,15,0.773,1687.0,16.69,76.58,61.95,54.47,76.09
-M_LITI,LIC MF Multi Cap Fund,16,0.772,1351.0,17.82,67.31,61.73,74.39,69.54
-M_CAFF,Canara Rob Focused Fund,17,0.772,1721.0,14.69,61.03,56.39,81.7,75.86
-M_LTNA,HSBC Value Fund,18,0.754,2486.0,15.18,72.47,59.62,59.6,72.89
-M_PARO,Parag Parikh Flexi Cap Fund,19,0.74,2449.0,12.92,61.71,51.6,64.07,84.33
-M_ADTUE,Aditya Birla SL Flexi Cap Fund,20,0.736,2486.0,16.44,66.88,62.77,72.3,58.82
-M_ADYUM,Aditya Birla SL Multi-Cap Fund,21,0.734,1724.0,15.13,59.46,56.03,75.23,70.78
-M_ICCYV,ICICI Pru Value Fund,22,0.721,2486.0,13.28,67.36,54.85,62.02,71.18
-M_MAHD,Mahindra Manulife Focused Fund,23,0.719,1766.0,14.33,59.2,59.03,43.25,87.13
-M_WOCE,WOC Flexi Cap Fund,24,0.717,1432.0,15.3,67.83,59.75,47.8,74.39
-M_ITMU,ITI Multi Cap Fund,25,0.709,1904.0,16.67,63.71,60.2,88.01,44.58
-M_BANK,Bank of India Multi Cap Fund,26,0.704,1237.0,17.45,71.89,50.28,52.21,74.36
-M_EDWU,Edelweiss Flexi Cap Fund,27,0.697,2295.0,15.54,62.68,58.44,62.01,63.52
-M_KOQN,Kotak Contra Fund,28,0.694,2485.0,14.88,59.59,58.68,48.73,75.21
-M_INTT,Invesco India Contra Fund,29,0.692,2486.0,15.59,58.1,55.05,51.64,78.17
-M_HSBD,HSBC Focused Fund,30,0.685,1796.0,14.84,55.52,51.98,79.64,60.83
-M_QUVN,Quant Value Fund,31,0.674,1658.0,18.42,61.16,56.08,52.67,67.78
-M_QUTO,Quant Flexi Cap Fund,32,0.672,2484.0,15.68,58.14,47.24,66.53,69.98
-M_ADTFU,Aditya Birla SL Focused Fund,33,0.67,2486.0,15.06,58.45,59.52,78.65,45.13
-M_ITFF,ITI Flexi Cap Fund,34,0.67,1250.0,19.35,62.76,52.26,44.6,75.61
-M_ICPIU,ICICI Pru Multi Cap Fund,35,0.666,2486.0,14.43,70.29,53.84,52.48,59.8
-M_IDFUM,Bandhan Multi Cap Fund,36,0.63,1659.0,13.28,61.41,51.33,43.54,66.44
-M_HSMY,HSBC Flexi Cap Fund,37,0.627,2486.0,16.28,65.55,56.46,68.88,36.55
-M_UNMI,Union Multicap Fund,38,0.625,1305.0,15.08,61.17,44.75,53.07,65.63
-M_IDBO,LIC MF Value Fund,39,0.623,1971.0,17.22,50.59,47.12,85.24,47.52
-M_DSOF,DSP Focused Fund,40,0.611,2486.0,13.98,61.38,55.5,78.85,28.82
-M_KOSN,Kotak Flexi Cap Fund,41,0.602,2485.0,12.9,51.76,46.17,61.23,59.21
-M_WOMI,WOC Multi Cap Fund,42,0.599,1051.0,18.2,63.78,45.46,32.03,70.32
-M_BAFN,Bajaj Finserv Flexi Cap Fund,43,0.596,1087.0,17.32,62.42,42.94,40.13,67.47
-M_UNOY,Union Value Fund,44,0.591,1945.0,11.68,52.16,45.24,43.24,70.2
-M_MIFE,Mirae Asset Flexi Cap Fund,45,0.59,1244.0,14.18,58.17,45.43,45.49,62.5
-M_HSUA,HSBC Multi Cap Fund,46,0.579,1266.0,16.61,63.18,44.52,25.44,70.6
-M_JMUU,JM Flexi Cap Fund,47,0.572,2486.0,14.38,53.15,47.3,45.89,58.87
-M_SBIUC,SBI Multicap Fund,48,0.572,1569.0,13.29,61.11,46.98,35.49,59.79
-M_QUTT,Quant Focused Fund,49,0.57,2484.0,13.99,48.12,45.39,57.41,56.59
-M_TAQY,Tata Value Fund,50,0.56,2486.0,13.47,50.27,46.31,54.06,52.72
-M_AXMM,Axis Flexi Cap Fund,51,0.553,2043.0,14.54,46.88,48.37,78.7,32.58
-M_IIFS,360 ONE Focused Fund,52,0.551,2319.0,12.88,46.2,45.31,40.55,65.1
-M_MOI3,Motilal Oswal Flexi Cap Fund,53,0.548,2365.0,17.46,62.08,57.05,50.14,28.33
-M_IDYS,Bandhan Focused Fund,54,0.546,2488.0,16.0,61.26,52.33,68.39,20.34
-M_NIML,Nippon India Multi Cap Fund,55,0.546,2486.0,13.29,66.89,48.26,46.85,36.56
-M_INMC,Invesco India Multicap Fund,56,0.542,2486.0,13.34,52.25,46.67,45.55,51.43
-M_ITFC,ITI Focused Fund,57,0.542,1138.0,15.67,58.58,39.9,29.86,65.53
-M_CAOQ,Canara Rob Flexi Cap Fund,58,0.54,2486.0,13.4,47.18,47.8,59.4,43.54
-M_PRPW,Sundaram Multi Cap Fund,59,0.534,2485.0,12.42,52.22,46.03,44.38,50.51
-M_CAVO,Canara Rob Value Fund,60,0.527,1694.0,11.25,45.16,42.22,35.23,66.28
-M_ESEL,Navi Flexi Cap Fund,61,0.525,1982.0,12.39,44.02,39.75,77.17,38.21
-M_ADTPV,Aditya Birla SL Value Fund,62,0.524,2486.0,13.23,56.27,47.3,59.3,31.16
-M_DSYE,DSP Flexi Cap Fund,63,0.521,2486.0,12.28,45.85,41.39,63.6,43.56
-M_UNOF,Union Focused Fund,64,0.512,1884.0,12.64,41.04,40.23,60.42,48.67
-M_EDFC,Edelweiss Focused Fund,65,0.511,1434.0,13.93,49.27,42.76,34.38,57.54
-M_360E,360 ONE Flexicap Fund,66,0.503,1128.0,17.77,52.5,38.51,24.14,65.03
-M_INUI,Groww Value Fund,67,0.501,2240.0,12.6,51.35,46.95,79.66,13.36
-M_FREE,Franklin India Flexi Cap Fund,68,0.499,2486.0,11.88,47.99,47.91,38.61,45.77
-M_NIEV,Nippon India Value Fund,69,0.497,2486.0,12.72,52.64,43.4,36.76,47.71
-M_HDCUI,HDFC Multi Cap Fund,70,0.493,1650.0,11.32,51.06,39.88,30.66,56.55
-M_BAMU,Baroda BNP Paribas Multi Cap Fund,71,0.49,2486.0,14.34,57.98,44.9,34.37,40.64
-M_UTFFO,UTI Focused Fund,72,0.48,1696.0,11.85,38.34,41.9,51.39,46.08
-M_MAHX,Mahindra Manulife Flexi Cap Fund,73,0.475,1696.0,11.19,45.17,42.45,29.11,54.41
-M_NICY,Nippon India Focused Fund,74,0.465,2486.0,10.24,38.31,35.38,69.36,35.77
-M_UTILO,UTI Value Fund,75,0.462,2486.0,12.87,51.16,51.43,30.44,33.37
-M_PGAV,PGIM India Flexi Cap Fund,76,0.457,2288.0,12.28,37.45,42.32,52.24,38.77
-M_SBICO,SBI Contra Fund,77,0.456,2488.0,11.42,52.76,42.86,29.83,40.78
-M_UNMN,Union Flexi Cap Fund,78,0.455,2486.0,11.98,46.46,44.93,46.1,31.27
-M_HELF,Helios Flexi Cap Fund,79,0.447,1004.0,18.06,63.78,16.41,23.97,63.64
-M_FRON,Franklin India Focused Equity Fund,80,0.447,2486.0,9.18,32.5,35.38,45.69,53.32
-M_IDFMM,Bandhan Flexi Cap Fund,81,0.443,2488.0,12.28,44.14,44.82,58.78,20.25
-M_IDLV,Bandhan Value Fund,82,0.433,2488.0,11.9,46.01,43.35,37.99,33.02
-M_OLDD,Old Bridge Focused Fund,83,0.432,937.0,12.08,47.37,14.9,49.85,56.33
-M_TAMC,Tata Flexi Cap Fund,84,0.43,1968.0,10.34,42.67,39.32,37.33,40.22
-M_JMCR,JM Focused Fund,85,0.43,2486.0,12.25,51.13,36.42,43.11,31.79
-M_EDEWA,Edelweiss Multi Cap Fund,86,0.427,1020.0,16.21,50.86,35.91,9.52,56.95
-M_ITVA,ITI Value Fund,87,0.422,1714.0,11.82,40.39,35.04,42.67,40.9
-M_CAML,Canara Rob Multi Cap Fund,88,0.417,1102.0,13.92,48.31,35.37,11.74,55.3
-M_MOSN,Motilal Oswal Multi Cap Fund,89,0.415,802.0,N/A (insufficient history),54.93,17.32,27.14,58.4
-M_QUNC,Quant Multi Cap Fund,90,0.406,2484.0,10.33,28.36,31.84,18.98,68.76
-M_MIMC,Mirae Asset Multicap Fund,91,0.402,1080.0,13.43,49.95,35.19,10.08,50.4
-M_JMVA,JM Value Fund,92,0.395,2486.0,10.56,38.0,35.74,28.18,44.83
-M_BARX,Baroda BNP Paribas Flexi Cap Fund,93,0.39,1418.0,12.38,37.96,34.22,25.01,47.5
-M_MOI2,Motilal Oswal Focused Fund,94,0.386,2452.0,14.88,36.2,44.2,36.23,27.52
-M_TATY,Tata Focused Fund,95,0.374,1854.0,9.92,26.84,25.94,51.05,43.04
-M_NIPIX,Nippon India Flexi Cap Fund,96,0.372,1700.0,10.52,34.51,32.41,30.65,43.1
-M_QUTR,Quantum Value Fund,97,0.366,3107.0,11.15,39.36,41.24,43.83,16.26
-M_TEMO,Templeton India Value Fund,98,0.362,2486.0,9.94,37.78,38.24,33.42,27.8
-M_PRLF,Sundaram Focused Fund,99,0.359,2485.0,10.98,29.89,37.52,26.45,40.28
-M_SBUC,SBI Flexicap Fund,100,0.346,2488.0,9.83,25.41,31.48,35.9,40.32
-M_TAHU,Taurus Flexi Cap Fund,101,0.341,2486.0,12.96,37.21,36.46,51.14,10.82
-M_LILU,LIC MF Flexi Cap Fund,102,0.338,2486.0,11.49,31.83,37.35,52.51,12.63
-M_SUNRX,Sundaram Flexi Cap Fund,103,0.331,1400.0,9.91,32.24,32.11,19.77,40.9
-M_UTIEY,UTI Flexi Cap Fund,104,0.315,2486.0,9.88,25.92,32.0,44.69,23.06
-M_AXFO,Axis Focused Fund,105,0.314,2488.0,11.18,23.92,30.6,50.08,22.3
-M_TRMM,TRUSTMF Flexi Cap Fund,106,0.311,853.0,11.34,37.98,13.94,15.09,54.7
-M_PGUG,PGIM India Multi Cap Fund,107,0.305,703.0,N/A (insufficient history),37.11,N/A (not ranked),25.58,52.89
-M_TATUM,Tata Multicap Fund,108,0.299,1263.0,10.8,34.52,25.98,21.06,35.3
-M_FRANU,Franklin India Multi Cap Fund,109,0.259,766.0,N/A (insufficient history),30.62,12.3,11.73,49.66
-M_GRMT,Groww Multicap Fund,110,0.252,616.0,N/A (insufficient history),44.63,N/A (not ranked),N/A (not ranked),46.89
-M_MIAU,Mirae Asset Focused Fund,111,0.248,1904.0,10.25,19.53,32.56,15.97,29.18
-M_IDB0,LIC MF Focused Fund,112,0.245,2041.0,10.02,21.99,27.12,36.8,16.71
-M_TRMI,TRUSTMF Multi Cap Fund,113,0.244,422.0,N/A (insufficient history),44.13,N/A (not ranked),N/A (not ranked),44.98
-M_BAJFI,Bajaj Finserv Multi Cap Fund,114,0.236,550.0,N/A (insufficient history),41.25,N/A (not ranked),N/A (not ranked),44.97
-M_BNP5,Baroda BNP Paribas Focused Fund,115,0.234,2052.0,9.99,25.49,28.4,21.34,20.14
-M_SUVY,Sundaram Value Fund,116,0.232,2485.0,7.42,24.65,28.16,28.9,14.91
-M_MAMG,Mahindra Manulife Value Fund,117,0.213,547.0,N/A (insufficient history),33.51,N/A (not ranked),N/A (not ranked),44.98
-M_SHRP,Shriram Flexi Cap Fund,118,0.201,1962.0,7.1,14.28,22.55,37.25,15.37
-M_UNFL,Unifi Flexi Cap Fund,119,0.174,463.0,N/A (insufficient history),21.63,N/A (not ranked),N/A (not ranked),43.7
-M_DSPUP,DSP Multi Cap Fund,120,0.164,931.0,8.22,18.76,7.79,3.58,42.6
-M_NJFL,NJ Flexi Cap Fund,121,0.16,1065.0,9.24,18.2,20.42,2.65,27.66
-M_BANV,Baroda BNP Paribas Value Fund,122,0.147,1148.0,9.8,16.38,17.44,3.2,28.28
-M_UTMUL,UTI Multi Cap Fund,123,0.143,479.0,N/A (insufficient history),13.13,N/A (not ranked),N/A (not ranked),41.91
-M_JIOF,JioBlackRock Flexi Cap Fund,124,0.139,346.0,N/A (insufficient history),12.65,N/A (not ranked),N/A (not ranked),41.0
-M_THEA,The Wealth Company Flexi Cap Fund,125,0.129,346.0,N/A (insufficient history),10.09,N/A (not ranked),N/A (not ranked),40.35
-M_CAPI,Capitalmind Flexi Cap Fund,126,0.127,410.0,N/A (insufficient history),7.22,N/A (not ranked),N/A (not ranked),42.31
-M_ABAU,Abakkus Flexi Cap Fund,127,0.113,316.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),44.65
-M_SACO,Samco Multi Cap Fund,128,0.112,653.0,N/A (insufficient history),8.16,N/A (not ranked),N/A (not ranked),36.68
-M_SAMC,Samco Flexi Cap Fund,129,0.057,1598.0,-3.68,6.56,15.83,5.35,9.52
-M_ALPF,AlphaGrep Flexi Cap Fund,130,0.0,85.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
-M_ICROO,ICICI Pru Contra Fund,131,0.0,22.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
-M_BANOT,Bank of India Value Fund,132,0.0,50.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
-M_BANNU,Bandhan Contra Fund,133,0.0,64.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
-M_MOCG,Motilal Oswal Contra Fund,134,0.0,155.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
-M_NJVL,NJ Value Fund,135,0.0,99.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
-M_OLDX,Old Bridge Flexi Cap Fund,136,0.0,246.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
-M_QUUP,Quantum Flexi Cap Fund,137,0.0,57.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
-M_THLT,The Wealth Company Multi Cap Fund,138,0.0,50.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_AXVV,Axis Value Fund,1,0.923,1693.0,18.38,81.86,72.45,82.2,84.67
+M_AXNM,Axis Multicap Fund,2,0.921,1651.0,19.08,84.21,72.07,84.58,80.58
+M_INXO,Invesco India Flexi Cap Fund,3,0.898,1595.0,17.8,75.69,66.07,103.63,74.01
+M_ICCSF,ICICI Pru Focused Fund,4,0.884,2485.0,18.15,84.92,71.91,87.45,66.59
+M_DSPVE,DSP Value Fund,5,0.868,1716.0,17.32,76.07,62.53,78.61,87.39
+M_MADN,Mahindra Manulife Multi Cap Fund,6,0.867,2090.0,16.65,77.94,66.14,82.94,77.87
+M_BOIX,Bank of India Flexi Cap Fund,7,0.864,1803.0,17.86,70.0,61.72,94.1,81.19
+M_INVC,Invesco India Focused Fund,8,0.859,1780.0,21.86,68.29,65.53,105.87,67.62
+M_HDCEQ,HDFC Flexi Cap Fund,9,0.848,2487.0,17.16,82.59,62.59,103.52,56.39
+M_HDCAC,HDFC Value Fund,10,0.827,2487.0,16.26,72.71,66.37,96.19,59.82
+M_ICIXD,ICICI Pru Flexi Cap Fund,11,0.823,1706.0,15.94,75.26,61.55,73.52,79.14
+M_KOTY,Kotak Focused Fund,12,0.803,1890.0,16.48,65.31,56.71,98.5,69.03
+M_HDFSO,HDFC Focused Fund,13,0.798,2487.0,16.99,85.71,65.98,92.83,42.22
+M_SBFQ,SBI Focused Fund,14,0.795,2490.0,16.07,61.14,55.84,103.74,67.34
+M_KOTMU,Kotak Multi Cap Fund,15,0.794,1689.0,16.66,78.01,63.05,59.58,76.58
+M_CAFF,Canara Rob Focused Fund,16,0.776,1722.0,14.78,63.43,56.0,81.39,76.05
+M_LITI,LIC MF Multi Cap Fund,17,0.77,1357.0,17.6,68.39,60.25,74.8,69.74
+M_LTNA,HSBC Value Fund,18,0.75,2487.0,14.92,71.99,59.04,59.6,73.08
+M_ADTUE,Aditya Birla SL Flexi Cap Fund,19,0.738,2487.0,16.33,67.84,62.86,72.22,58.82
+M_ADYUM,Aditya Birla SL Multi-Cap Fund,20,0.735,1726.0,15.42,60.45,55.46,75.0,71.66
+M_PARO,Parag Parikh Flexi Cap Fund,21,0.731,2450.0,12.66,59.87,51.21,64.07,84.18
+M_ICCYV,ICICI Pru Value Fund,22,0.724,2487.0,13.06,68.87,54.88,62.02,70.94
+M_ITMU,ITI Multi Cap Fund,23,0.718,1906.0,16.48,66.64,60.31,88.01,45.01
+M_MAHD,Mahindra Manulife Focused Fund,24,0.717,1768.0,13.91,60.36,58.06,43.44,86.7
+M_WOCE,WOC Flexi Cap Fund,25,0.713,1438.0,15.14,66.82,59.36,47.87,74.58
+M_BANK,Bank of India Multi Cap Fund,26,0.707,1244.0,17.11,73.07,50.61,52.34,74.32
+M_KOQN,Kotak Contra Fund,27,0.694,2487.0,14.62,58.88,58.26,50.78,75.2
+M_EDWU,Edelweiss Flexi Cap Fund,28,0.692,2296.0,15.36,62.28,58.09,61.66,63.49
+M_INTT,Invesco India Contra Fund,29,0.691,2487.0,15.41,58.68,54.41,51.83,78.14
+M_HSBD,HSBC Focused Fund,30,0.688,1798.0,14.83,57.9,50.97,78.94,61.68
+M_QUVN,Quant Value Fund,31,0.674,1664.0,17.72,63.57,55.17,52.67,67.02
+M_ITFF,ITI Flexi Cap Fund,32,0.674,1256.0,19.0,64.77,52.44,44.49,75.41
+M_ADTFU,Aditya Birla SL Focused Fund,33,0.667,2487.0,15.01,58.11,59.31,78.49,45.09
+M_ICPIU,ICICI Pru Multi Cap Fund,34,0.667,2487.0,14.08,71.38,53.65,52.63,59.5
+M_QUTO,Quant Flexi Cap Fund,35,0.642,2485.0,15.28,58.11,47.69,54.53,69.37
+M_IDBO,LIC MF Value Fund,36,0.633,1972.0,17.11,53.57,47.18,85.95,47.61
+M_UNMI,Union Multicap Fund,37,0.624,1311.0,14.76,61.2,44.44,53.2,66.15
+M_KOSN,Kotak Flexi Cap Fund,38,0.622,2487.0,12.99,51.81,47.17,67.88,59.46
+M_HSMY,HSBC Flexi Cap Fund,39,0.621,2487.0,15.94,64.81,55.71,68.56,36.51
+M_IDFUM,Bandhan Multi Cap Fund,40,0.621,1666.0,13.09,58.95,50.91,43.63,66.6
+M_DSOF,DSP Focused Fund,41,0.613,2487.0,13.8,61.7,55.86,79.02,29.03
+M_WOMI,WOC Multi Cap Fund,42,0.599,1057.0,17.94,64.17,45.14,32.12,70.72
+M_BAFN,Bajaj Finserv Flexi Cap Fund,43,0.59,1093.0,17.1,61.21,42.64,40.24,67.24
+M_UNOY,Union Value Fund,44,0.589,1946.0,11.38,51.38,45.53,43.24,70.32
+M_MIFE,Mirae Asset Flexi Cap Fund,45,0.588,1250.0,14.25,56.49,45.62,46.31,62.87
+M_HSUA,HSBC Multi Cap Fund,46,0.587,1272.0,16.29,63.98,44.28,28.35,70.89
+M_JMUU,JM Flexi Cap Fund,47,0.571,2487.0,14.27,52.54,47.77,45.89,58.92
+M_IDYS,Bandhan Focused Fund,48,0.567,2490.0,15.6,62.7,52.62,75.29,20.4
+M_UNOF,Union Focused Fund,49,0.562,1885.0,12.94,42.59,41.96,75.42,49.98
+M_AXMM,Axis Flexi Cap Fund,50,0.557,2044.0,14.8,47.69,48.66,78.7,33.04
+M_SBIUC,SBI Multicap Fund,51,0.554,1575.0,12.85,56.92,45.95,35.86,59.3
+M_TAQY,Tata Value Fund,52,0.552,2487.0,12.98,49.47,45.47,53.83,52.48
+M_QUTT,Quant Focused Fund,53,0.551,2485.0,13.13,44.95,43.79,58.33,55.04
+M_NIML,Nippon India Multi Cap Fund,54,0.551,2487.0,13.19,67.83,48.96,46.79,36.71
+M_MOI3,Motilal Oswal Flexi Cap Fund,55,0.55,2366.0,17.58,61.74,57.78,50.37,28.5
+M_ITFC,ITI Focused Fund,56,0.549,1144.0,15.42,59.95,40.41,29.94,66.22
+M_IIFS,360 ONE Focused Fund,57,0.547,2321.0,12.82,44.64,45.68,40.55,65.17
+M_CAOQ,Canara Rob Flexi Cap Fund,58,0.54,2487.0,13.41,46.81,48.01,59.61,43.73
+M_INMC,Invesco India Multicap Fund,59,0.54,2487.0,13.33,51.75,46.47,45.09,52.09
+M_HELF,Helios Flexi Cap Fund,60,0.539,1010.0,18.17,64.09,39.95,23.91,64.49
+M_ESEL,Navi Flexi Cap Fund,61,0.536,1983.0,12.5,46.61,40.14,77.41,38.66
+M_PRPW,Sundaram Multi Cap Fund,62,0.531,2487.0,12.49,50.96,46.06,44.15,51.19
+M_DSYE,DSP Flexi Cap Fund,63,0.53,2487.0,12.26,47.31,41.89,64.04,44.1
+M_CAVO,Canara Rob Value Fund,64,0.527,1696.0,11.02,45.51,42.2,35.33,66.17
+M_EDFC,Edelweiss Focused Fund,65,0.516,1440.0,13.95,50.56,42.7,34.88,58.01
+M_360E,360 ONE Flexicap Fund,66,0.512,1134.0,17.7,54.41,39.0,24.49,65.46
+M_FREE,Franklin India Flexi Cap Fund,67,0.504,2487.0,11.91,49.65,48.24,38.07,45.81
+M_NIEV,Nippon India Value Fund,68,0.502,2487.0,12.26,54.86,42.99,36.76,47.77
+M_INUI,Groww Value Fund,69,0.501,2242.0,12.66,51.04,47.35,79.66,13.44
+M_BAMU,Baroda BNP Paribas Multi Cap Fund,70,0.499,2487.0,14.1,57.61,45.06,37.99,41.08
+M_ADTPV,Aditya Birla SL Value Fund,71,0.497,2487.0,12.98,57.4,46.91,47.3,31.45
+M_PGAV,PGIM India Flexi Cap Fund,72,0.491,2289.0,12.46,37.86,42.91,64.43,39.09
+M_HDCUI,HDFC Multi Cap Fund,73,0.488,1656.0,11.07,48.99,40.08,30.57,56.95
+M_MAHX,Mahindra Manulife Flexi Cap Fund,74,0.484,1698.0,10.98,44.82,42.09,34.54,54.25
+M_UTFFO,UTI Focused Fund,75,0.481,1698.0,11.69,38.78,41.8,51.23,46.44
+M_UTILO,UTI Value Fund,76,0.463,2487.0,12.62,51.63,51.3,30.73,33.3
+M_NICY,Nippon India Focused Fund,77,0.462,2487.0,10.08,39.24,33.73,69.36,36.1
+M_SBICO,SBI Contra Fund,78,0.455,2490.0,11.06,52.98,42.74,29.82,40.37
+M_UNMN,Union Flexi Cap Fund,79,0.454,2487.0,11.79,43.91,46.22,47.03,31.39
+M_FRON,Franklin India Focused Equity Fund,80,0.453,2487.0,9.14,33.95,35.82,45.86,53.51
+M_IDFMM,Bandhan Flexi Cap Fund,81,0.446,2490.0,12.15,44.83,44.95,59.06,20.36
+M_IDLV,Bandhan Value Fund,82,0.438,2490.0,11.79,47.34,43.56,38.02,33.25
+M_JMCR,JM Focused Fund,83,0.431,2487.0,11.92,51.12,36.64,43.11,32.11
+M_ITVA,ITI Value Fund,84,0.43,1715.0,11.61,42.85,35.2,42.67,41.47
+M_TAMC,Tata Flexi Cap Fund,85,0.428,1969.0,10.06,42.65,39.18,37.17,40.16
+M_OLDD,Old Bridge Focused Fund,86,0.428,943.0,12.28,46.71,14.81,50.0,56.19
+M_MOSN,Motilal Oswal Multi Cap Fund,87,0.423,808.0,20.71,56.57,17.51,27.36,59.62
+M_EDEWA,Edelweiss Multi Cap Fund,88,0.423,1026.0,16.02,49.25,35.55,10.17,57.29
+M_JMVA,JM Value Fund,89,0.418,2487.0,10.3,39.34,36.35,35.23,45.06
+M_CAML,Canara Rob Multi Cap Fund,90,0.415,1108.0,13.82,47.71,34.59,11.63,56.29
+M_MIMC,Mirae Asset Multicap Fund,91,0.397,1087.0,13.37,48.31,35.05,10.15,50.83
+M_BARX,Baroda BNP Paribas Flexi Cap Fund,92,0.394,1424.0,12.06,37.85,34.17,26.8,48.01
+M_MOI2,Motilal Oswal Focused Fund,93,0.393,2454.0,14.98,37.44,44.84,36.23,28.02
+M_QUTR,Quantum Value Fund,94,0.392,3108.0,10.77,39.64,41.14,54.79,16.26
+M_QUNC,Quant Multi Cap Fund,95,0.392,2485.0,9.55,26.27,30.44,19.68,67.63
+M_TATY,Tata Focused Fund,96,0.374,1855.0,9.74,26.57,26.19,51.46,43.0
+M_NIPIX,Nippon India Flexi Cap Fund,97,0.373,1701.0,10.36,34.25,32.51,30.93,43.42
+M_PRLF,Sundaram Focused Fund,98,0.365,2487.0,11.15,30.93,37.87,26.45,40.89
+M_TEMO,Templeton India Value Fund,99,0.36,2487.0,9.65,38.19,37.75,33.65,27.42
+M_LILU,LIC MF Flexi Cap Fund,100,0.352,2487.0,11.88,35.16,38.21,52.74,12.82
+M_SBUC,SBI Flexicap Fund,101,0.346,2490.0,9.54,26.29,31.26,36.03,40.1
+M_TAHU,Taurus Flexi Cap Fund,102,0.344,2487.0,12.62,38.19,36.57,50.9,10.82
+M_SUNRX,Sundaram Flexi Cap Fund,103,0.331,1406.0,9.85,30.65,32.98,19.66,41.45
+M_AXFO,Axis Focused Fund,104,0.324,2489.0,11.22,26.48,31.03,50.08,22.61
+M_PGUG,PGIM India Multi Cap Fund,105,0.316,709.0,N/A (insufficient history),41.11,N/A (not ranked),25.93,53.18
+M_UTIEY,UTI Flexi Cap Fund,106,0.31,2487.0,9.55,25.45,31.39,44.49,22.9
+M_TRMM,TRUSTMF Flexi Cap Fund,107,0.303,859.0,11.74,35.44,13.94,15.14,54.92
+M_TATUM,Tata Multicap Fund,108,0.281,1269.0,10.69,34.5,26.1,13.63,35.28
+M_GRMT,Groww Multicap Fund,109,0.259,622.0,N/A (insufficient history),47.55,N/A (not ranked),N/A (not ranked),47.04
+M_FRANU,Franklin India Multi Cap Fund,110,0.258,772.0,N/A (insufficient history),31.26,12.32,11.12,49.78
+M_MIAU,Mirae Asset Focused Fund,111,0.252,1906.0,10.39,20.69,32.34,15.77,29.71
+M_TRMI,TRUSTMF Multi Cap Fund,112,0.246,428.0,N/A (insufficient history),45.26,N/A (not ranked),N/A (not ranked),44.98
+M_BNP5,Baroda BNP Paribas Focused Fund,113,0.24,2053.0,9.92,26.78,29.14,21.34,20.24
+M_SUVY,Sundaram Value Fund,114,0.236,2487.0,7.32,25.78,28.72,28.22,14.99
+M_IDB0,LIC MF Focused Fund,115,0.235,2042.0,9.49,19.88,26.05,37.71,16.29
+M_BAJFI,Bajaj Finserv Multi Cap Fund,116,0.228,556.0,N/A (insufficient history),39.07,N/A (not ranked),N/A (not ranked),45.1
+M_SHRP,Shriram Flexi Cap Fund,117,0.206,1964.0,6.94,14.21,23.64,37.36,15.65
+M_MAMG,Mahindra Manulife Value Fund,118,0.202,553.0,N/A (insufficient history),30.7,N/A (not ranked),N/A (not ranked),44.52
+M_UNFL,Unifi Flexi Cap Fund,119,0.17,469.0,N/A (insufficient history),20.61,N/A (not ranked),N/A (not ranked),43.62
+M_DSPUP,DSP Multi Cap Fund,120,0.165,937.0,8.6,19.0,7.79,3.59,42.99
+M_NJFL,NJ Flexi Cap Fund,121,0.148,1072.0,8.0,15.49,20.14,2.65,26.6
+M_JIOF,JioBlackRock Flexi Cap Fund,122,0.139,352.0,N/A (insufficient history),13.08,N/A (not ranked),N/A (not ranked),41.05
+M_BANV,Baroda BNP Paribas Value Fund,123,0.139,1155.0,9.22,14.42,17.25,3.21,27.77
+M_UTMUL,UTI Multi Cap Fund,124,0.136,485.0,N/A (insufficient history),11.14,N/A (not ranked),N/A (not ranked),41.82
+M_THEA,The Wealth Company Flexi Cap Fund,125,0.129,352.0,N/A (insufficient history),10.15,N/A (not ranked),N/A (not ranked),40.39
+M_CAPI,Capitalmind Flexi Cap Fund,126,0.123,416.0,N/A (insufficient history),6.19,N/A (not ranked),N/A (not ranked),42.28
+M_ABAU,Abakkus Flexi Cap Fund,127,0.113,322.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),44.65
+M_SACO,Samco Multi Cap Fund,128,0.11,659.0,N/A (insufficient history),7.87,N/A (not ranked),N/A (not ranked),36.76
+M_SAMC,Samco Flexi Cap Fund,129,0.06,1604.0,-4.01,6.99,16.27,5.35,9.52
+M_ALPF,AlphaGrep Flexi Cap Fund,130,0.0,92.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_ICROO,ICICI Pru Contra Fund,131,0.0,29.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_BANOT,Bank of India Value Fund,132,0.0,57.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_BANNU,Bandhan Contra Fund,133,0.0,71.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_MOCG,Motilal Oswal Contra Fund,134,0.0,162.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_NJVL,NJ Value Fund,135,0.0,106.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_OLDX,Old Bridge Flexi Cap Fund,136,0.0,253.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_QUUP,Quantum Flexi Cap Fund,137,0.0,64.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
+M_THLT,The Wealth Company Multi Cap Fund,138,0.0,57.0,N/A (insufficient history),0.0,N/A (not ranked),N/A (not ranked),N/A (not ranked)
